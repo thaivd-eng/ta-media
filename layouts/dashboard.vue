@@ -25,12 +25,7 @@ const title = computed(() => useRoute().meta.title);
 
       <div class="drawer-side">
         <label for="my-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-        <ul class="menu bg-base-200 text-base-content min-h-full w-80 p-4">
-          <li><NuxtLink to="/">Dự án</NuxtLink></li>
-          <li><NuxtLink to="/report">Báo cáo</NuxtLink></li>
-          <li><NuxtLink to="#">Liên hệ</NuxtLink></li>
-          <li><NuxtLink to="#">Đăng xuất</NuxtLink></li>
-        </ul>
+        <dashboard-drawer />
       </div>
     </div>
   </div>

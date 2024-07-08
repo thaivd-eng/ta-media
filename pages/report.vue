@@ -16,27 +16,27 @@ definePageMeta({
 // states + computed
 const chartData = computed(() => {
   const months = {
-    "January": 2,
-    "February": 4,
-    "March": 8,
-    "April": 10,
-    "May": 6,
-    "June": 5,
-    "July": 4,
-    "August": 3,
-    "September": 7,
-    "October": 1,
-    "November": 9,
-    "December": 5,
+    'Tháng 1': 2,
+    'Tháng 2': 4,
+    'Tháng 3': 8,
+    'Tháng 4': 10,
+    'Tháng 5': 6,
+    'Tháng 6': 5,
+    'Tháng 7': 4,
+    'Tháng 8': 3,
+    'Tháng 9': 7,
+    'Tháng 10': 1,
+    'Tháng 11': 9,
+    'Tháng 12': 5,
   };
 
   let chartData = {
     labels: Object.keys(months),
     datasets: [
       {
-        label: "videos",
+        label: 'videos',
         data: Object.values(months),
-        backgroundColor: "#3182CE",
+        backgroundColor: '#ffc90c',
       },
     ],
   }
@@ -51,29 +51,29 @@ const chartData = computed(() => {
     <div class="flex flex-col gap-6 lg:flex-row">
       <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
         <IconUser class="size-12 fill-primary" />
-        <span class="text-3xl font-bold">50</span>
+        <span class="text-4xl font-bold">50</span>
         <span>Người dùng</span>
       </div>
       <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
         <IconCircleCheck class="size-12 fill-primary" />
-        <span class="text-3xl font-bold">30</span>
+        <span class="text-4xl font-bold">30</span>
         <span>Dự án</span>
       </div>
       <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
         <IconCirclePlay class="size-12 fill-primary" />
-        <span class="text-3xl font-bold">100</span>
+        <span class="text-4xl font-bold">100</span>
         <span>Videos</span>
       </div>
       <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
         <IconCommentDots class="size-12 fill-primary" />
-        <span class="text-3xl font-bold">150</span>
+        <span class="text-4xl font-bold">150</span>
         <span>Phản hồi</span>
       </div>
     </div>
 
     <!-- chart -->
     <div class="rounded border p-6 w-full bg-base-100">
-      <h2 class="mb-3 text-xl font-bold text-center">Video created by month</h2>
+      <h2 class="mb-3 text-xl font-bold text-center">Số video đã tạo trong tháng</h2>
       <BarChart :chartData="chartData" />
     </div>
   </div>

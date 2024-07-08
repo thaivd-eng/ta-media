@@ -5,7 +5,6 @@ import videojs from 'video.js';
 
 import * as mockup from '@/utils/mockup-data';
 import 'video.js/dist/video-js.min.css';
-import { comment } from 'postcss';
 
 // define page head
 useHead({
@@ -35,6 +34,18 @@ const isLoading = ref(true);
 const videoPlayer = ref(null);
 var player = null;
 const showVideo = ref(true);
+const uploaderUrl = computed(() => {
+  if (!project.value) return;
+
+  const BASE_URL = 'https://script.google.com/macros/s/AKfycbx0vb4GCtsms5GifVCxOrk4gZakix7zJB2j3QVZy6sb64pCXzD-5Lbo-mzB7g8xNQbd/exec';
+  const data = JSON.stringify({
+    projectId: project.value.id,
+    createdBy: 'tr1nh',
+    version: versions.value.length + 1
+  });
+  
+  return `${BASE_URL}?data=${encodeURIComponent(data)}`;
+});
 
 // on mounted do something...
 onMounted(async () => {
@@ -47,15 +58,19 @@ onMounted(async () => {
 
   await findComments();
 
+  initPlayer();
+});
+
+function initPlayer() {
   player = videojs(videoPlayer.value, {
     autoplay: false,
     controls: true,
-    sources: [
-      {
-        src: currentVideo.value.videoUrl,
-        type: 'video/mp4'
-      }
-    ]
+    // sources: [
+    //   {
+    //     src: currentVideo.value.videoUrl,
+    //     type: 'video/mp4'
+    //   }
+    // ]
   }, () => {
     player.one('loadedmetadata', () => {
       comments.value.forEach(comment => {
@@ -64,7 +79,12 @@ onMounted(async () => {
       });
     });
   });
-});
+
+  player.src({
+        src: currentVideo.value.videoUrl,
+        type: 'video/mp4'
+      })
+}
 
 // methods
 async function fetchData() {
@@ -113,7 +133,7 @@ function createMarker(marker) {
   return markerEl;
 }
 
-const feedback = ref('');
+const feedback = ref('Bình luận của bạn về video...');
 
 function onSubmitFeedback(e) {
   // check empty feedback
@@ -181,6 +201,25 @@ function onFeedbackClick(id) {
   player.currentTime(time);
   player.pause();
 }
+
+const showModal = ref(false);
+async function onToggleModal() {
+  if (!showModal.value) {
+    await fetchData();
+    initPlayer();
+  }
+}
+
+function changeVideo(version) {
+  currentVideo.value = videos.value.find(video => video.version == version);
+  // initPlayer();
+  // player.reset();
+  player.src({
+        src: currentVideo.value.videoUrl,
+        type: 'video/mp4'
+      })
+  
+}
 </script>
 
 <template>
@@ -195,13 +234,17 @@ function onFeedbackClick(id) {
         </div>
 
         <div class="flex-1">
-          <a class="btn btn-ghost text-xl">{{ project ? project.name : 'Loading...' }}</a>
+          <a class="hidden btn btn-ghost text-xl lg:flex">{{ project ? project.name : 'Loading...' }}</a>
           <div class="dropdown" v-if="currentVideo">
             <div tabindex="0" role="button" class="btn btn-sm m-1">{{ currentVideo.version }}</div>
             <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-auto p-2 shadow">
-              <li v-for="version in versions"><a>{{ version }}</a></li>
+              <li v-for="version in versions"><a @click="changeVideo(version)">{{ version }}</a></li>
             </ul>
           </div>
+
+          <label for="modal_uploader" class="btn btn-sm btn-circle btn-primary" title="Upload video">
+            <IconPlus class="size-3.5" />
+          </label>
         </div>
       </template>
 
@@ -218,14 +261,14 @@ function onFeedbackClick(id) {
       <div class="rounded w-full flex flex-col gap-6">
         <div class="w-full flex flex-col gap-6">
           <video v-if="showVideo" ref="videoPlayer" data-setup='{"fluid": true}' class="video-js aspect-video"></video>
-          <div v-else class="rounded border dashed w-full aspect-video flex flex-col gap-3 justify-center items-center bg-base-200">
-            <p class="text-base-content">Don't have any video</p>
-            <button class="btn btn-primary">Upload a video</button>
+          <div v-else class="rounded border border-2 border-dashed w-full aspect-video flex flex-col gap-3 justify-center items-center">
+            <p class="text-base-content">Chưa có video nào</p>
+            <label for="modal_uploader" class="btn btn-primary">Tải video lên</label>
           </div>
         </div>
 
         <form class="flex items-center gap-3" @submit.prevent="onSubmitFeedback">
-          <textarea v-model="feedback" @focus="onFocusFeedback" class="rounded border px-3 py-1.5 w-full bg-base-200 focus:outline-none focus:ring-1 focus:ring-primary"></textarea>
+          <textarea v-model="feedback" @focus="onFocusFeedback" class="rounded border px-3 py-1.5 w-full focus:outline-none focus:ring-1 focus:ring-primary"></textarea>
           <button type="submit" class="btn btn-circle btn-primary">
             <IconPaperPlane class="size-4" />
           </button>
@@ -268,5 +311,14 @@ function onFeedbackClick(id) {
         </div>
       </div>
     </div>
+
+    <input v-model="showModal" type="checkbox" id="modal_uploader" class="modal-toggle" @change="onToggleModal(e)" />
+    <div class="modal" role="dialog">
+      <div class="modal-box h-full">
+        <iframe class="w-full h-full" :src="uploaderUrl" frameborder="0"></iframe>
+      </div>
+      <label class="modal-backdrop" for="modal_uploader">Close</label>
+    </div>
   </div>
+
 </template>
