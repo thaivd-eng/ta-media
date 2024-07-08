@@ -1,30 +1,19 @@
 <script setup>
 // import modules
-import Swal from 'sweetalert2';
 import * as mockup from '@/utils/mockup-data';
 
-// define page head
-useHead({
-  title: 'Home',
-  meta: [
-    { name: 'description', content: 'All projects of users' }
-  ]
-});
-
-// define page meta
+// define page head + page meta
+useHead({ title: 'Trang chủ' });
 definePageMeta({
-  title: 'Home',
+  title: 'Trang chủ',
   layout: 'dashboard'
 });
 
 // states
 const isLoading = ref(true);
 const projects = ref([]);
-const showModalCreate = ref(false);
-const showModalEdit = ref(false);
-const selectedProject = ref(null);
 
-// before mount do something...
+// on before mount do something...
 onBeforeMount(() => {
   fetchData();
 });
@@ -35,28 +24,29 @@ async function fetchData() {
   projects.value = res;
   isLoading.value = false;
 }
+
+function onTapFAB() { }
 </script>
 
 <template>
   <div>
-    <HomeSkeleton v-if="isLoading" />
+    <!-- loader -->
+    <home-skeleton v-if="isLoading" />
 
-    <!-- grid projects -->
-    <div v-else class="p-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-      <home-project-item
-        v-for="project in projects"
-        :name="project.name"
-        :link="'/project?id=' + project.id"
-      />
+    <!-- list project -->
+    <div v-else class="projects">
+      <home-project-item v-for="project
+        in projects" :name="project.name" :link="'/project?id=' + project.id">
+      </home-project-item>
     </div>
-    
-    <!-- floating action button -->
-    <button class="fixed right-6 bottom-6 shadow-lg rounded-full p-3 aspect-square bg-primary">
-      <svg class="size-6 fill-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><path d="M256 80c0-17.7-14.3-32-32-32s-32 14.3-32 32V224H48c-17.7 0-32 14.3-32 32s14.3 32 32 32H192V432c0 17.7 14.3 32 32 32s32-14.3 32-32V288H400c17.7 0 32-14.3 32-32s-14.3-32-32-32H256V80z"/></svg>
-    </button>
 
-    <!-- modal create -->
-
-    <!-- modal edit -->
+    <!-- floating button -->
+    <floating-action-button @click="onTapFAB" />
   </div>
 </template>
+
+<style scoped>
+.projects {
+  @apply p-6 grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3;
+}
+</style>

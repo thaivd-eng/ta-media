@@ -7,10 +7,10 @@ const props = defineProps({
 </script>
 
 <template>
-  <NuxtLink :to="props.link" class="rounded border w-full flex flex-col aspect-[4/3] bg-white">
-    <div class="grow flex justify-center items-center bg-gray-100">
-      <svg class="size-12 fill-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zM188.3 147.1c7.6-4.2 16.8-4.1 24.3 .5l144 88c7.1 4.4 11.5 12.1 11.5 20.5s-4.4 16.1-11.5 20.5l-144 88c-7.4 4.5-16.7 4.7-24.3 .5s-12.3-12.2-12.3-20.9V168c0-8.7 4.7-16.7 12.3-20.9z"/></svg>
+  <NuxtLink :to="props.link" class="rounded border w-full flex flex-col aspect-[4/3]">
+    <div class="grow flex justify-center items-center bg-base-200">
+      <IconCirclePlay class="size-12 fill-base-content" />
     </div>
-    <span class="border-t p-3 bg-white">{{ props.name }}</span>
+    <span class="border-t p-3 bg-base-100">{{ props.name }}</span>
   </NuxtLink>
 </template>
