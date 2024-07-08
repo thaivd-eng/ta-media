@@ -3,7 +3,7 @@
 import Swal from 'sweetalert2';
 import videojs from 'video.js';
 
-import * as mockup from '@/utils/mockup-data';
+import * as data from '@/utils/data';
 import 'video.js/dist/video-js.min.css';
 
 // define page head
@@ -89,8 +89,8 @@ function initPlayer() {
 // methods
 async function fetchData() {
   let projectId = useRoute().query.id;
-  let projectData = await mockup.findProject();
-  let videoData = await mockup.findVideo();
+  let projectData = await data.findProject();
+  let videoData = await data.findVideo();
 
   let tempProject = projectData.find((_project) => _project.id == projectId);
   let tempVideo = videoData.filter((_video) => _video.projectId == projectId);
@@ -102,7 +102,7 @@ async function fetchData() {
 }
 
 async function findComments() {
-  let commentData = await mockup.findCommentByVideo(currentVideo.value.id);
+  let commentData = await data.findCommentByVideo(currentVideo.value.id);
   comments.value = commentData;
   comments.value = comments.value.sort((a, b) => a.time - b.time);
 }
@@ -215,10 +215,9 @@ function changeVideo(version) {
   // initPlayer();
   // player.reset();
   player.src({
-        src: currentVideo.value.videoUrl,
-        type: 'video/mp4'
-      })
-  
+    src: currentVideo.value.videoUrl,
+    type: 'video/mp4'
+  })
 }
 </script>
 
