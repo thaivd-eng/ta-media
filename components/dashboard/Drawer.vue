@@ -9,28 +9,27 @@ function updateActiveItem() {
 
   document.querySelectorAll(".sidebar__item").forEach((item) => {
     let href = item.getAttribute("href");
-    if (path == href) {
-      item.classList.add("sidebar__item--actived");
-    }
+    if (path != href) return;
+    item.classList.add("sidebar__item--actived");
   });
 }
 </script>
 
 <template>
-  <div class="menu bg-primary text-primary-content min-h-full w-80 p-4">
+  <div class="menu bg-primary text-primary-content min-h-full w-80 p-4 pt-0">
     <div class="sidebar hide-scrollbar">
       <div class="sidebar__header">
         <img src="~/assets/images/logo.webp" alt="logo" class="rounded size-8" />
-        <h1 class="text-xl font-bold">Video Feedback</h1>
+        <h1 class="text-xl font-medium">Video Feedback</h1>
       </div>
 
       <div class="sidebar__items">
         <div class="sidebar__item--head">
           <span class="">Menu</span>
         </div>
-        <NuxtLink class="sidebar__item" to="/">
+        <NuxtLink class="sidebar__item" to="/projects">
           <div class="sidebar__icon"><IconCirclePlay /></div>
-          <span class="sidebar__title">Trang chủ</span>
+          <span class="sidebar__title">Dự án</span>
         </NuxtLink>
         <NuxtLink class="sidebar__item" to="/report">
           <div class="sidebar__icon"><IconChartPie /></div>
@@ -40,15 +39,15 @@ function updateActiveItem() {
 
       <div class="sidebar__items">
         <div class="sidebar__item--head">
-          <span class="">Support</span>
+          <span class="">Hỗ trợ</span>
         </div>
-        <NuxtLink class="sidebar__item" to="/about">
+        <NuxtLink class="sidebar__item" to="/info">
           <div class="sidebar__icon"><IconCircleInfo /></div>
-          <span class="sidebar__title">About</span>
+          <span class="sidebar__title">Thông tin</span>
         </NuxtLink>
         <NuxtLink class="sidebar__item" to="/contact">
           <div class="sidebar__icon"><IconAddressContact /></div>
-          <span class="sidebar__title">Contact</span>
+          <span class="sidebar__title">Liên hệ</span>
         </NuxtLink>
         <NuxtLink class="sidebar__item" to="/faq">
           <div class="sidebar__icon"><IconCircleQuestion /></div>
@@ -56,8 +55,6 @@ function updateActiveItem() {
         </NuxtLink>
       </div>
     </div>
-
-    <div class="sidebar__backdrop" @click="$emit('on-backdrop-click')"></div>
   </div>
 </template>
 
@@ -80,7 +77,7 @@ function updateActiveItem() {
   @apply w-full h-full bg-black/50 lg:hidden;
 }
 .sidebar__header {
-  @apply p-6 flex items-center gap-3;
+  @apply p-6 pt-4 flex items-center gap-3;
 }
 .sidebar__items {
   @apply p-4 flex flex-col;

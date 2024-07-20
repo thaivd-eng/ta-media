@@ -2,6 +2,7 @@
 // import modules
 import { BarChart } from 'vue-chart-3';
 import { Chart, registerables } from 'chart.js';
+import * as data from '~/utils/data-service';
 
 Chart.register(...registerables);
 
@@ -14,6 +15,7 @@ definePageMeta({
 });
 
 // states + computed
+const isLoading = ref(true);
 const chartData = computed(() => {
   const months = {
     'Tháng 1': 2,
@@ -43,30 +45,55 @@ const chartData = computed(() => {
 
   return chartData;
 });
+
+// hook
+onBeforeMount(async () => {
+  await fetchData();
+  isLoading.value = false;
+});
+
+const projects = ref(0);
+const videos = ref(0);
+const versions = ref(0);
+const feedbacks = ref(0);
+
+async function fetchData() {
+  let _projects = await data.find('projects');
+  let _videos = await data.find('videos');
+  let _versions = await data.find('versions');
+  let _feedbacks = await data.find('feedbacks');
+
+  projects.value = _projects.length;
+  videos.value = _videos.length;
+  versions.value = _versions.length;
+  feedbacks.value = _feedbacks.length;
+}
 </script>
 
 <template>
-  <div class="p-6 w-full h-screen flex flex-col gap-6">
+  <report-skeleton v-if="isLoading" />
+
+  <div class="p-6 w-full h-screen flex flex-col gap-6" v-else>
     <!-- stats -->
     <div class="flex flex-col gap-6 lg:flex-row">
       <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
-        <IconUser class="size-12 fill-primary" />
-        <span class="text-4xl font-bold">50</span>
-        <span>Người dùng</span>
-      </div>
-      <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
         <IconCircleCheck class="size-12 fill-primary" />
-        <span class="text-4xl font-bold">30</span>
+        <span class="text-4xl font-bold">{{ projects }}</span>
         <span>Dự án</span>
       </div>
       <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
         <IconCirclePlay class="size-12 fill-primary" />
-        <span class="text-4xl font-bold">100</span>
+        <span class="text-4xl font-bold">{{ videos }}</span>
         <span>Videos</span>
       </div>
       <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
+        <IconCodeBranch class="size-12 fill-primary" />
+        <span class="text-4xl font-bold">{{ versions }}</span>
+        <span>Phiên bản</span>
+      </div>
+      <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
         <IconCommentDots class="size-12 fill-primary" />
-        <span class="text-4xl font-bold">150</span>
+        <span class="text-4xl font-bold">{{ feedbacks }}</span>
         <span>Phản hồi</span>
       </div>
     </div>

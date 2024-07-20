@@ -2,15 +2,16 @@
 import * as data from "~/utils/contact-data";
 
 definePageMeta({
-  title: "FAQ",
+  title: "Thông tin",
   layout: "dashboard",
 });
 
 const isLoading = ref(true);
-const faq = ref([]);
+const html = ref("");
 
 onBeforeMount(async () => {
-  faq.value = await data.findFAQ();
+  let result = await data.findAbout();
+  html.value = result[0].html;
   isLoading.value = false;
 });
 </script>
@@ -22,14 +23,6 @@ onBeforeMount(async () => {
       <p>Đang tải dữ liệu...</p>
     </div>
 
-    <div class="join join-vertical w-full" v-else>
-      <div class="collapse collapse-arrow join-item border-base-300 border" v-for="item in faq">
-        <input type="radio" name="my-accordion-4" checked="checked" />
-        <div class="collapse-title text-xl font-medium">{{ item.title }}</div>
-        <div class="collapse-content">
-          <p>{{ item.body }}</p>
-        </div>
-      </div>
-    </div>
+    <div v-html="html"></div>
   </div>
 </template>
