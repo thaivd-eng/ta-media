@@ -27,8 +27,8 @@ const showModalEdit = ref(false);
 
 onBeforeMount(async () => {
   await fetchData();
-  useHead({ title: project.value.name });
-  useRoute().meta.title = project.value.name;
+  // useHead({ title: project.value.name });
+  // useRoute().meta.title = project.value.name;
 });
 
 async function findThumbnail() {
@@ -105,7 +105,11 @@ async function deleteVideo(video) {
   });
 }
 
+const isLoading2 = ref(false);
+
 async function createVideo() {
+  isLoading2.value = true;
+
   if (!newVideo.value.name) return;
 
   let video = {
@@ -114,14 +118,16 @@ async function createVideo() {
     projectId: project.value.id,
     createdBy: user.value.userName,
     thumbnailUrl: '',
+    folderId: project.value.folderId,
     versions: [],
     done: 0,
     feedbacks: 0,
   };
 
-  data.create('videos', video);
-  videos.value.push(video);
+  let result = await data.createVideo(video);
+  videos.value.push(result.data);
 
+  /*
   let version = {
     id: Date.now(),
     videoId: video.id,
@@ -129,9 +135,11 @@ async function createVideo() {
     createdBy: user.value.userName,
   };
   data.create('versions', version);
+  */
 
   newVideo.name = '';
   showModalCreate.value = false;
+  isLoading2.value = false;
 }
 
 function showEditVideo(video) {
@@ -183,7 +191,11 @@ function updateVideo() {
 
         <div class="modal-action">
           <label for="modal_create" class="btn">Thoát</label>
-          <button type="submit" class="btn btn-primary">Thêm</button>
+          <button type="submit" class="btn btn-primary">
+            <span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
+            <span v-if="isLoading2">Đang xử lý...</span>
+            <span v-else>Thêm</span>
+          </button>
         </div>
       </form>
       <label class="modal-backdrop" for="modal_create">Thoát</label>

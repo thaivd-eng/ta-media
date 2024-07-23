@@ -18,19 +18,32 @@ definePageMeta({
 const isLoading = ref(true);
 const chartData = computed(() => {
   const months = {
-    'Tháng 1': 2,
-    'Tháng 2': 4,
-    'Tháng 3': 8,
-    'Tháng 4': 10,
-    'Tháng 5': 6,
-    'Tháng 6': 5,
-    'Tháng 7': 4,
-    'Tháng 8': 3,
-    'Tháng 9': 7,
-    'Tháng 10': 1,
-    'Tháng 11': 9,
-    'Tháng 12': 5,
+    'Tháng 1': 0,
+    'Tháng 2': 0,
+    'Tháng 3': 0,
+    'Tháng 4': 0,
+    'Tháng 5': 0,
+    'Tháng 6': 0,
+    'Tháng 7': 0,
+    'Tháng 8': 0,
+    'Tháng 9': 0,
+    'Tháng 10': 0,
+    'Tháng 11': 0,
+    'Tháng 12': 0,
   };
+
+  // filter videos by month in current year from videos
+  let currentYear = new Date().getFullYear();
+  videoData.value.forEach((v) => {
+    // convert date string to Date object
+    // format of createdAt: 'dd/mm/yyyy hh:mm:ss'
+    let date = new Date(v.createdAt.split(' ')[0].split('/').reverse());
+
+    if (date.getFullYear() == currentYear) {
+      let month = date.getMonth() + 1;
+      months[`Tháng ${month}`] += 1;
+    }
+  });
 
   let chartData = {
     labels: Object.keys(months),
@@ -56,10 +69,11 @@ const projects = ref(0);
 const videos = ref(0);
 const versions = ref(0);
 const feedbacks = ref(0);
+const videoData = ref(null);
 
 async function fetchData() {
-  let _projects = await data.find('projects');
-  let _videos = await data.find('videos');
+  let _projects = (await data.find('projects')).filter((p) => p.isDisabled != 1);
+  let _videos = (await data.find('videos')).filter((v) => v.isDisabled != 1);
   let _versions = await data.find('versions');
   let _feedbacks = await data.find('feedbacks');
 
@@ -67,13 +81,15 @@ async function fetchData() {
   videos.value = _videos.length;
   versions.value = _versions.length;
   feedbacks.value = _feedbacks.length;
+
+  videoData.value = _videos;
 }
 </script>
 
 <template>
   <report-skeleton v-if="isLoading" />
 
-  <div class="p-6 w-full h-screen flex flex-col gap-6" v-else>
+  <div class="p-6 w-full min-h-screen flex flex-col gap-6" v-else>
     <!-- stats -->
     <div class="flex flex-col gap-6 lg:flex-row">
       <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">

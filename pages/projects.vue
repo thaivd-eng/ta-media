@@ -40,14 +40,19 @@ onBeforeMount(async () => {
   isLoading.value = false;
 });
 
-function createProject() {
-  data.create('projects', newProject.value);
-  projects.value.push(JSON.parse(JSON.stringify(newProject.value)));
+const isLoading2 = ref(false);
+
+async function createProject() {
+  isLoading2.value = true;
+
+  let result = await data.createProject(newProject.value);
+  projects.value.push(result.data);
 
   newProject.value.name = '';
   newProject.value.description = '';
 
   showModalCreate.value = false;
+  isLoading2.value = false;
 }
 
 function deleteProject(project) {
@@ -117,7 +122,11 @@ function updateProject() {
 
         <div class="modal-action">
           <label for="modal_create" class="btn">Thoát</label>
-          <button type="submit" class="btn btn-primary">Thêm</button>
+          <button type="submit" class="btn btn-primary">
+            <span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
+            <span v-if="isLoading2">Đang xử lý...</span>
+            <span v-else>Thêm</span>
+          </button>
         </div>
       </form>
       <label class="modal-backdrop" for="modal_create">Thoát</label>

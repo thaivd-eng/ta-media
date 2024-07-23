@@ -110,10 +110,6 @@ function createMarker(player, marker) {
   player.el().querySelector('.vjs-progress-control').appendChild(markerEl);
 }
 
-async function createVersion() {
-  showModalUpload.value = true;
-}
-
 const newFeedback = ref('');
 
 async function createFeedback() {
@@ -176,30 +172,61 @@ function removeFeedback(id) {
 function pauseVideo() {
   player.pause();
 }
+
+function uploadVideo() {
+  Swal.fire({
+    title: 'Tải video',
+    text: 'Bạn sẽ được chuyển đến trang tải video, sau khi tải xong, vui lòng quay lại trang này để cập nhật lại',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonText: 'Được',
+    cancelButtonText: 'Không',
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+    let url = 'https://drive.google.com/drive/folders/' + video.value.folderId;
+    window.open(url, '_blank');
+
+    Swal.fire({
+      title: 'Đã tải xong?',
+      text: 'Sau khi tải xong video, vui lòng nhấn nút "Có" để cập nhật lại video',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Có',
+      cancelButtonText: 'Không',
+    }).then(async (result) => {
+      if (!result.isConfirmed) return;
+
+      isLoading.value = true;
+
+      await data.checkUpload(video.value);
+      await fetchData();
+    });
+  });
+}
 </script>
 
 <template>
   <div class="w-full min-h-screen flex flex-col">
-    <video-nav-bar @create-version="createVersion"/>
+    <video-nav-bar @create-version="uploadVideo"/>
 
     <div class="mx-auto p-6 container w-full min-h-screen flex flex-col gap-3">
       <video-skeleton v-if="isLoading" />
 
       <!-- uploader -->
-      <div class="w-full min-h-screen flex flex-col justify-center items-center gap-3" v-if="!currentVersion && !isLoading">
+      <div class="w-full min-h-screen flex flex-col justify-center items-center gap-3" v-if="!isLoading && (currentVersion && currentVersion.videoUrl == '') || !currentVersion">
         <p>Chưa có video nào cả, hãy bắt đầu với một video mới</p>
-        <label for="modal_upload" class="btn btn-primary">Tải video</label>
+        <button class="btn btn-primary" @click="uploadVideo">Tải video</button>
       </div>
 
       <!-- video + feedback -->
-      <div :class="['flex flex-col gap-6 lg:flex-row', currentVersion || 'hidden']">
+      <div :class="['flex flex-col gap-6 lg:flex-row', !isLoading && currentVersion && currentVersion.videoUrl || 'hidden']">
         <!-- video player -->
         <div class="w-full flex flex-col gap-6">
           <video 
             id="video-player"
             ref="videoPlayer"
-            data-setup='{"fluid": true}'
-            class="video-js aspect-video">
+            data-setup='{}'
+            class="vjs-fill video-js aspect-video">
           </video>
 
           <form class="flex items-center gap-6" @submit.prevent="createFeedback">

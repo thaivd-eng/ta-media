@@ -45,7 +45,7 @@ function toggleDone() {
 
       <div class="dropdown" v-if="currentVersion">
         <div tabindex="0" role="button" class="btn btn"> v{{ currentVersionIndex + 1 }}</div>
-        <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-auto p-2 shadow">
+        <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[2] w-auto p-2 shadow">
           <li v-for="(version, i) in versions"><a @click="changeVersion(version)">v{{ i + 1 }}</a></li>
           <li><a @click="createVersion" class="whitespace-nowrap">Thêm phiên bản</a></li>
         </ul>
