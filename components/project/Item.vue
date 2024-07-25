@@ -15,8 +15,8 @@ function onClickEdit() {
 </script>
 
 <template>
-  <div class="rounded border w-full flex flex-col aspect-[4/3] overflow-hidden">
-    <NuxtLink :to="'/video?id=' + props.video.id" class="relative grow flex justify-center items-center bg-base-200 overflow-hidden">
+  <div class="rounded border w-full flex flex-col aspect-[4/3]">
+    <NuxtLink :to="'/video?id=' + props.video.id" class="relative h-full flex justify-center items-center bg-base-200 overflow-hidden">
       <img :src="props.video.thumbnailUrl" alt="thumb" class="rounded-t w-full h-full object-cover" v-if="props.video.thumbnailUrl">
       <div class="w-full h-full flex justify-center items-center bg-base-2" v-else>
         <IconCirclePlay class="size-8 fill-primary-content/50" />

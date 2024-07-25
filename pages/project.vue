@@ -27,8 +27,8 @@ const showModalEdit = ref(false);
 
 onBeforeMount(async () => {
   await fetchData();
-  // useHead({ title: project.value.name });
-  // useRoute().meta.title = project.value.name;
+  useHead({ title: project.value.name });
+  useRoute().meta.title = 'Dự án ' + project.value.name;
 });
 
 async function findThumbnail() {

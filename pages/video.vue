@@ -176,10 +176,16 @@ function pauseVideo() {
 function uploadVideo() {
   Swal.fire({
     title: 'Tải video',
-    text: 'Bạn sẽ được chuyển đến trang tải video, sau khi tải xong, vui lòng quay lại trang này để cập nhật lại',
+    html: `
+<div class="text-left">
+<p>1. Bạn sẽ được chuyển đến thư mục Drive</p>
+<p>2. Hãy upload video của bạn lên thư mục này</p>
+<p>3. Sau khi upload xong, quay lại trang này và nhấn "Có" để cập nhật video</p>
+</div>
+    `,
     icon: 'question',
     showCancelButton: true,
-    confirmButtonText: 'Được',
+    confirmButtonText: 'Đã hiểu',
     cancelButtonText: 'Không',
   }).then((result) => {
     if (!result.isConfirmed) return;
@@ -188,7 +194,7 @@ function uploadVideo() {
 
     Swal.fire({
       title: 'Đã tải xong?',
-      text: 'Sau khi tải xong video, vui lòng nhấn nút "Có" để cập nhật lại video',
+      text: 'Hãy nhấn nút "Có" để cập nhật video mới nha',
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Có',
@@ -279,15 +285,6 @@ function uploadVideo() {
 
       </div>
 
-    </div>
-
-    <!-- modal upload -->
-    <input type="checkbox" id="modal_upload" class="modal-toggle" v-model="showModalUpload" @change="onToggleModalUpload" />
-    <div class="modal" role="dialog">
-      <div class="modal-box h-full md:h-[70%]">
-        <iframe class="w-full h-full" :src="uploadUrl" frameborder="0"></iframe>
-      </div>
-      <label class="modal-backdrop" for="modal_upload">Close</label>
     </div>
 
   </div>
