@@ -9,6 +9,8 @@ const versions = computed(() => store.versions);
 const currentVersion = computed(() => store.currentVersion);
 const currentVersionIndex = computed(() => versions.value.findIndex(v => v.id == currentVersion.value.id));
 
+const user = computed(() => useCookie('user').value);
+
 function signOut() {
   data.signOut();
 }
@@ -60,9 +62,13 @@ function toggleDone() {
       </div>
 
       <div class="dropdown dropdown-end">
-        <button tabindex="0" role="button" class="btn btn-square btn-ghost">
-          <icon-ellipsis class="inline-block size-4 stroke-current" />
-        </button>
+        <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
+          <div class="w-10 rounded-full">
+            <img
+              alt="avatar"
+              :src="user.avatarUrl" />
+          </div>
+        </div>
         <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow">
           <li><a>Tài khoản</a></li>
           <li><a @click="signOut">Đăng xuất</a></li>

@@ -230,7 +230,7 @@ function updateVideo() {
 
         <div class="modal-action">
           <label for="modal_edit" class="btn">Thoát</label>
-          <button type="submit" class="btn btn-primary">Thêm</button>
+          <button type="submit" class="btn btn-primary">Cập nhật</button>
         </div>
       </form>
       <label class="modal-backdrop" for="modal_edit">Thoát</label>

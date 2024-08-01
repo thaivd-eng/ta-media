@@ -52,8 +52,36 @@ onBeforeMount(async () => {
   fetchData();
 });
 
+var inputFocus = false;
+
 onMounted(() => {
   initPlayer();
+
+  // add shortcut key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'f') {
+      if (inputFocus) return;
+
+      document.querySelector('.input').focus();
+      player.pause();
+      inputFocus = true;
+    }
+    if (e.key === ' ') {
+      if (inputFocus) return;
+      player.paused() ? player.play() : player.pause();
+    }
+    if (e.key === 'ArrowRight') {
+      player.currentTime(player.currentTime() + 5);
+    }
+    if (e.key === 'ArrowLeft') {
+      player.currentTime(player.currentTime() - 5);
+    }
+
+    if (e.key === 'Escape') {
+      document.querySelector('.input').blur();
+      inputFocus = false;
+    }
+  });
 });
 
 onBeforeUnmount(() => {
@@ -125,6 +153,8 @@ async function createFeedback() {
   newFeedback.value = '';
 
   store.createFeedback({ id, time, content });
+
+  inputFocus = false;
 }
 
 async function onToggleModalUpload() {
@@ -154,8 +184,8 @@ function onFeedbackClick(id) {
 
 function removeFeedback(id) {
   Swal.fire({
-    title: 'Bạn có chắc chắn muốn xóa phản hồi này?',
-    text: 'Bạn sẽ không thể hoàn tác hành động này!',
+    title: 'Xác nhận xóa',
+    text: 'Bạn có chắc chắn muốn xóa phản hồi này?',
     icon: 'warning',
     showCancelButton: true,
     confirmButtonText: 'Xóa',
@@ -209,13 +239,23 @@ function uploadVideo() {
     });
   });
 }
+
+
+  const shortcuts = ref([
+    { key: 'f', description: 'Tập trung vào textbox bình luận' },
+    { key: 'esc', description: 'Không tập trung vào textbox bình luận' },
+    { key: 'Enter', description: 'Gửi bình luận' },
+    { key: 'space', description: 'Ngừng / phát video' },
+    { key: '◀︎', description: 'Lùi video 5 giây' },
+    { key: '▶︎', description: 'Tiến video 5 giây' },
+  ]);
 </script>
 
 <template>
-  <div class="w-full min-h-screen flex flex-col">
+  <div class="w-full h-screen flex flex-col">
     <video-nav-bar @create-version="uploadVideo"/>
 
-    <div class="mx-auto p-6 container w-full min-h-screen flex flex-col gap-3">
+    <div class="mx-auto p-6 container w-full h-full flex flex-col gap-3">
       <video-skeleton v-if="isLoading" />
 
       <!-- uploader -->
@@ -225,26 +265,33 @@ function uploadVideo() {
       </div>
 
       <!-- video + feedback -->
-      <div :class="['flex flex-col gap-6 lg:flex-row', !isLoading && currentVersion && currentVersion.videoUrl || 'hidden']">
-        <!-- video player -->
-        <div class="w-full flex flex-col gap-6">
-          <video 
-            id="video-player"
-            ref="videoPlayer"
-            data-setup='{}'
-            class="vjs-fill video-js aspect-video">
-          </video>
+      <div :class="['h-full flex flex-col gap-6 lg:flex-row', !isLoading && currentVersion && currentVersion.videoUrl || 'hidden']">
 
-          <form class="flex items-center gap-6" @submit.prevent="createFeedback">
-            <textarea class="input input-bordered w-full" v-model="newFeedback" @click="pauseVideo"></textarea>
-            <button class="btn btn-circle btn-primary">
+        <!-- left -->
+        <div class="w-full flex flex-col gap-6">
+          <div>
+            <video 
+              id="video-player"
+              ref="videoPlayer"
+              data-setup='{}'
+              class="vjs-fill video-js aspect-video">
+            </video>
+          </div>
+
+          <form class="flex items-center gap-3" @submit.prevent="createFeedback">
+            <input class="input input-bordered w-full" v-model="newFeedback" @click="pauseVideo" />
+            <button type="submit" class="btn btn-square btn-primary">
               <IconPaperPlane class="size-4" />
             </button>
+            <label class="btn btn-square" for="modal_shortcut">
+              <IconQuestion class="size-4" />
+            </label>
           </form>
         </div>
 
         <!-- feedback -->
-        <div class="rounded border p-6 shrink-0 w-full h-full flex flex-col gap-6 bg-base-100 lg:w-96">
+        <div class="shrink-0 w-full h-full flex flex-col gap-6 bg-base-100 overflow-y-scroll lg:w-96">
+        <div class="rounded border p-6 ">
           <!-- project infomation -->
           <div>
             <h2 class="mb-3 text-lg font-bold" v-if="feedbacks.length > 0">Các phản hồi</h2>
@@ -255,7 +302,7 @@ function uploadVideo() {
           </div>
 
           <!-- project feedback -->
-          <div class="h-full flex flex-col divide-y overflow-y-scroll">
+          <div class="h-full flex flex-col divide-y">
             <div v-for="feedback in feedbacks" :id="'feedback-' + feedback.id" class="py-6 flex flex-col gap-1.5">
               <div class="flex items-center gap-1.5">
                 <div class="rounded-full size-8 bg-primary"></div>
@@ -282,10 +329,32 @@ function uploadVideo() {
             </div>
           </div>
         </div>
+        </div>
 
       </div>
 
     </div>
 
+    <!-- Floating action button to go back to /projects -->
+    <NuxtLink to="/projects" class="btn btn-circle btn-primary fixed bottom-6 right-6">
+      <IconHouse class="size-4" />
+    </NuxtLink>
+
+    <!-- Modal shortcut -->
+    <input type="checkbox" id="modal_shortcut" class="modal-toggle" v-model="showModalEdit" />
+    <div class="modal z-[1002]" role="dialog">
+      <div class="modal-box flex flex-col gap-3">
+        <h3 class="text-lg font-bold">Các phím tắt</h3>
+        <table class="bg-base-100">
+          <tr class="border-b" v-for="shortcut in shortcuts">
+            <td class="p-3">
+              <kbd class="kbd">{{ shortcut.key }}</kbd>
+            </td>
+            <td class="px-3">{{ shortcut.description }}</td>
+          </tr>
+        </table>
+      </div>
+      <label class="modal-backdrop" for="modal_shortcut">Thoát</label>
+    </div>
   </div>
 </template>

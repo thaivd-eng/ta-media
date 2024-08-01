@@ -4,9 +4,9 @@ useHead({ title: "Kiểm tra" });
 
 onBeforeMount(async () => {
   let router = useRouter();
-  let token = useCookie("token");
+  let token = useCookie("token").value;
 
-  if (!token.value) return router.replace("/login");
+  if (!token || token == "") return router.replace("/login");
 
   data
     .refreshToken(token.value)

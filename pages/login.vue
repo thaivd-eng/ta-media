@@ -59,6 +59,6 @@ function signIn() {
 }
 
 .form-login {
-  @apply max-w-sm w-full flex flex-col gap-3 bg-base-100;
+  @apply rounded border p-6 max-w-sm w-full flex flex-col gap-3 bg-base-100;
 }
 </style>

@@ -21,7 +21,7 @@ function onClickEdit() {
       <div class="w-full h-full flex justify-center items-center bg-base-2" v-else>
         <IconCirclePlay class="size-8 fill-primary-content/50" />
       </div>
-      <IconCircleCheck class="absolute top-3 right-3 rounded-full size-5 fill-primary bg-base-100" v-if="props.video.done == 1" />
+      <IconCircleCheck class="absolute top-3 right-3 rounded-full border-2 size-6 fill-success bg-base-100" v-if="props.video.done == 1" />
     </NuxtLink>
 
     <div class="border-t flex justify-between items-center">
