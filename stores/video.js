@@ -22,6 +22,13 @@ export const useVideoStore = defineStore("video", {
       this.findFeedbacks();
     },
 
+    removeVersion(id) {
+      let index = this.versions.findIndex((v) => v.id == id);
+      this.versions.splice(index, 1);
+      this.currentVersion = this.versions[this.versions.length - 1];
+      data.removeVersion({ id });
+    },
+
     removeFeedback(id) {
       let index = this.feedbacks.findIndex((f) => f.id == id);
       this.feedbacks.splice(index, 1);

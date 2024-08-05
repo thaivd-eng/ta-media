@@ -1,4 +1,5 @@
 <script setup>
+import Swal from 'sweetalert2';
 import * as data from '~/utils/data-service';
 
 const emits = defineEmits(['createVersion']);
@@ -34,6 +35,21 @@ function toggleDone() {
   data.update('versions', newData);
 }
 
+function removeVersion() {
+  Swal.fire({
+    title: 'Xoá phiên bản này?',
+    text: 'Bạn không thể hoàn tác hành động này!',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Xoá',
+    cancelButtonText: 'Huỷ',
+  }).then((result) => {
+    if (result.isConfirmed) {
+      store.removeVersion(currentVersion.value.id);
+    }
+  });
+}
+
 </script>
 
 <template>
@@ -55,6 +71,12 @@ function toggleDone() {
     </div>
 
     <div class="flex-none">
+      <div class="tooltip tooltip-bottom" data-tip="Xoá phiên bản này" v-if="currentVersion">
+        <button class="btn btn-ghost" @click="removeVersion">
+          <icon-trash class="size-6 fill-error" />
+        </button>
+      </div>
+
       <div class="tooltip tooltip-bottom" data-tip="Đánh dáu hoàn thành" v-if="currentVersion">
         <button class="btn btn-ghost" @click="toggleDone">
           <icon-circle-check :class="['size-6', currentVersion.status == 1 ? 'fill-success' : 'fill-base-content/30']" />

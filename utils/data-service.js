@@ -2,7 +2,8 @@ import axios from "axios";
 import fetchSheet from "./fetch-sheet.js";
 
 const SHEET_ID = "1HdA0BYnFRgM4Cm_5PMeJtK-OV6OAFrsY7ui6LAvY3VU";
-const BASE_URL = "https://script.google.com/macros/s/AKfycbxiS7TDJgXHQ-Tle7XMmPsLZnwnnfALNdsCYRIeMfHCTK26ynyXizV5_Z3IVN4F3s4D/exec"
+// const BASE_URL = "https://script.google.com/macros/s/AKfycbxiS7TDJgXHQ-Tle7XMmPsLZnwnnfALNdsCYRIeMfHCTK26ynyXizV5_Z3IVN4F3s4D/exec"
+const BASE_URL = "https://script.google.com/macros/s/AKfycbyYibcQQr7bUCWJwAbkRy-tR9ysbD1E8Ojj_1PmH5MR-BG7E8LEmcnOrsoFCMHfP1kt/exec"
 
 export async function signIn(userName, password) {
   let body = encodeData({ userName, password });
@@ -122,6 +123,14 @@ export async function createVideo(data) {
 export async function checkUpload(video) {
   video = encodeData(video);
   let url = BASE_URL + `?action=check-upload&data=${video}`;
+  let res = await axios.get(url);
+
+  return res.data;
+}
+
+export async function removeVersion(version) {
+  version = encodeData(version);
+  let url = BASE_URL + `?action=remove-version&data=${version}`;
   let res = await axios.get(url);
 
   return res.data;
