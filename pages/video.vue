@@ -4,6 +4,9 @@ import videojs from 'video.js';
 import 'video.js/dist/video-js.min.css';
 import Swal from 'sweetalert2';
 
+import { ask } from '~/utils/gemini';
+import { marked } from 'marked';
+
 var player = null;
 
 useHead({ title: 'Video' });
@@ -12,6 +15,46 @@ const store = useVideoStore();
 const isLoading = ref(true);
 const video = computed(() => store.video);
 const versions = computed(() => store.versions);
+
+
+const chat = ref([]);
+const chatId = ref(0);
+const isLoading2 = ref(false);
+const question = ref('');
+const showGemini = ref(false);
+
+function askGemini() {
+	if (isLoading2.value || !question.value) return;
+
+	isLoading2.value = true;
+
+	chat.value.push({
+		text: question.value,
+		role: 'user',
+	});
+
+	ask({
+		chatId: chatId.value,
+		question: question.value,
+		fileId: currentVersion.value.id
+	})
+	.then(data => {
+		chatId.value = data.id;
+		chat.value.push({
+			text: marked.parse(data.answer),
+			role: 'model'
+		});
+
+		isLoading2.value = false;
+	})
+	.catch(error => swal.fire({
+		icon: 'error',
+		title: 'Oops...',
+		text: error
+	}));
+
+	question.value = '';
+}
 
 const feedbacks = computed(() => {
   if (player && store.feedbacks) {
@@ -289,11 +332,42 @@ function uploadVideo() {
           </form>
         </div>
 
+				<div class="h-full">
+
+				<div role="tablist" class="tabs tabs-boxed mb-6">
+					<a role="tab" :class="['tab', showGemini ? '' : 'tab-active']" @click="showGemini = !showGemini">Phản hồi</a>
+					<a role="tab" :class="['tab', showGemini ? 'tab-active' : '']" @click="showGemini = !showGemini">AI</a>
+				</div>
+
+        <!-- gemini -->	
+        <div class="shrink-0 w-full h-full flex flex-col bg-base-100 lg:w-96" v-if="showGemini">
+
+					<div class="p-6 w-full grow bg-base-200 overflow-y-scroll">
+						<div v-for="item in chat" :class="['chat', item.role == 'user' ? 'chat-start' : 'chat-end']">
+							<div class="chat-bubble" v-html="item.text"></div>
+						</div>
+					</div>
+
+					<div class="p-3"></div>
+
+					<!-- chatbox -->
+					<form class="flex items-center gap-6" @submit.prevent="askGemini" >
+						<textarea v-model="question" class="input input-bordered grow"></textarea>
+						<button type="submit" class="btn btn-primary">
+							<span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
+							<span v-else>Gửi</span>
+						</button>
+					</form>
+
+				</div>
+        <!-- end of gemini -->
+				 
+
         <!-- feedback -->
-        <div class="shrink-0 w-full h-full flex flex-col gap-6 bg-base-100 overflow-y-scroll lg:w-96">
+        <div class="shrink-0 w-full h-full flex flex-col gap-6 bg-base-100 overflow-y-scroll lg:w-96" v-if="!showGemini">
         <div class="rounded border p-6 ">
           <!-- project infomation -->
-          <div>
+          <div class="hidden">
             <h2 class="mb-3 text-lg font-bold" v-if="feedbacks.length > 0">Các phản hồi</h2>
             <div class="p-6 flex flex-col justify-center items-center gap-3" v-else>
               <icon-circle-xmark class="size-12" />
@@ -330,6 +404,9 @@ function uploadVideo() {
           </div>
         </div>
         </div>
+
+      </div>
+			<!-- mhu mhu mhu -->
 
       </div>
 
