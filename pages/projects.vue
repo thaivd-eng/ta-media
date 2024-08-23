@@ -32,6 +32,9 @@ onBeforeMount(async () => {
 
   let thumbnails = await data.find('thumbnails');
   projects.value = _projects.map((p) => {
+    // use existed thumbnail if available
+    if (p.thumbnailUrl) return p;
+
     let thumbnail = thumbnails.find((t) => t.projectId == p.id);
     if (thumbnail) p.thumbnailUrl = thumbnail.thumbnailUrl ;
     return p;

@@ -47,7 +47,7 @@ function askGemini() {
 
 		isLoading2.value = false;
 	})
-	.catch(error => swal.fire({
+	.catch(error => Swal.fire({
 		icon: 'error',
 		title: 'Oops...',
 		text: error
@@ -102,6 +102,8 @@ onMounted(() => {
 
   // add shortcut key
   document.addEventListener('keydown', (e) => {
+    if (showGemini.value) return;
+
     if (e.key === 'f') {
       if (inputFocus) return;
 
@@ -198,6 +200,7 @@ async function createFeedback() {
   store.createFeedback({ id, time, content });
 
   inputFocus = false;
+  document.querySelector('video').focus();
 }
 
 async function onToggleModalUpload() {
@@ -342,7 +345,7 @@ function uploadVideo() {
         <!-- gemini -->	
         <div class="shrink-0 w-full h-full flex flex-col bg-base-100 lg:w-96" v-if="showGemini">
 
-					<div class="p-6 w-full grow bg-base-200 overflow-y-scroll">
+					<div class="rounded border p-6 w-full grow overflow-y-scroll">
 						<div v-for="item in chat" :class="['chat', item.role == 'user' ? 'chat-start' : 'chat-end']">
 							<div class="chat-bubble" v-html="item.text"></div>
 						</div>

@@ -15,7 +15,7 @@ function onClickEdit() {
 </script>
 
 <template>
-  <div class="rounded border w-full flex flex-col aspect-[4/3]">
+  <div class="rounded border w-full flex flex-col aspect-video">
     <NuxtLink :to="'/project?id=' + props.project.id" class="grow h-full flex justify-center items-center bg-base-200 overflow-hidden">
       <img :src="props.project.thumbnailUrl" alt="thumb" class="w-full h-full object-cover" v-if="props.project.thumbnailUrl">
       <div class="w-full h-full flex justify-center items-center bg-base-2" v-else>
