@@ -53,6 +53,10 @@ function updateActiveItem() {
           <div class="sidebar__icon"><IconCircleQuestion /></div>
           <span class="sidebar__title">FAQ</span>
         </NuxtLink>
+        <NuxtLink class="sidebar__item" to="/issues">
+          <div class="sidebar__icon"><IconBug /></div>
+          <span class="sidebar__title">Vấn đề</span>
+        </NuxtLink>
       </div>
     </div>
   </div>
