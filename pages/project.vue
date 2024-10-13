@@ -236,5 +236,27 @@ function updateVideo() {
       <label class="modal-backdrop" for="modal_edit">Thoát</label>
     </div>
 
+    <!-- side panel sheet embeded -->
+    <input type="checkbox" class="hidden peer" id="show-sheet">
+    <div class="fixed top-0 right-0 shadow-lg border w-full h-screen bg-white transition-all translate-x-full peer-checked:translate-x-0 lg:w-7/12">
+      <label class="absolute top-24 right-full shadow rounded-s-full p-3 bg-primary" for="show-sheet">
+        <IconFile class="size-4 fill-base-content" />
+      </label>
+
+      <div class="w-full h-full flex flex-col justify-center items-center gap-3" v-if="!project.sheetUrl">
+        <IconFile class="size-20 fill-base-content/30" />
+        <p>Dự án này không có tệp sheet</p>
+      </div>
+
+      <iframe v-else
+        class="w-full h-full bg-white"
+        :src="project.sheetUrl"
+      </iframe>
+
+      <label class="absolute bottom-6 right-6 shadow rounded-full p-3 bg-primary lg:hidden" for="show-sheet">
+        <IconFile class="size-4 fill-base-content" />
+      </label>
+    </div>
+
   </div>
 </template>

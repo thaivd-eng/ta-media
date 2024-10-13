@@ -1,9 +1,8 @@
 import axios from "axios";
 import fetchSheet from "./fetch-sheet.js";
 
-const SHEET_ID = "1HdA0BYnFRgM4Cm_5PMeJtK-OV6OAFrsY7ui6LAvY3VU";
-// const BASE_URL = "https://script.google.com/macros/s/AKfycbxiS7TDJgXHQ-Tle7XMmPsLZnwnnfALNdsCYRIeMfHCTK26ynyXizV5_Z3IVN4F3s4D/exec"
-const BASE_URL = "https://script.google.com/macros/s/AKfycbyYibcQQr7bUCWJwAbkRy-tR9ysbD1E8Ojj_1PmH5MR-BG7E8LEmcnOrsoFCMHfP1kt/exec"
+const SHEET_ID = "1HfJroyChryUnMnDnma7TP59Hhye5hz5SHs5mp37pY9c";
+const BASE_URL = "https://script.google.com/macros/s/AKfycbzb7yFoSRIehf_WOywCvBdu4hAr_R-TRQGJY1lDCBuHdh8PdIpK6P5xlJfoUrvtp8Mr7Q/exec";
 
 export async function signIn(userName, password) {
   let body = encodeData({ userName, password });
@@ -100,13 +99,15 @@ export async function remove(collection, data) {
  */
 export function getUploadUrl(videoId) {
   let user = useCookie("user").value;
+  let token = useCookie("token").value;
   let data = JSON.stringify({ videoId, createdBy: user.userName });
-  return `${BASE_URL}?action=upload&data=${encodeURIComponent(data)}`;
+  return `${BASE_URL}?action=upload&data=${encodeURIComponent(data)}&token=${token}`;
 }
 
 export async function createProject(data) {
   data = encodeData(data);
-  let url = BASE_URL + `?action=create-project&data=${data}`;
+  let token = useCookie("token").value;
+  let url = BASE_URL + `?action=create-project&data=${data}&token=${token}`;
   let res = await axios.get(url);
 
   return res.data;
@@ -114,7 +115,8 @@ export async function createProject(data) {
 
 export async function createVideo(data) {
   data = encodeData(data);
-  let url = BASE_URL + `?action=create-video&data=${data}`;
+  let token = useCookie("token").value;
+  let url = BASE_URL + `?action=create-video&data=${data}&token=${token}`;
   let res = await axios.get(url);
 
   return res.data;
@@ -122,7 +124,8 @@ export async function createVideo(data) {
 
 export async function checkUpload(video) {
   video = encodeData(video);
-  let url = BASE_URL + `?action=check-upload&data=${video}`;
+  let token = useCookie("token").value;
+  let url = BASE_URL + `?action=check-upload&data=${video}&token=${token}`;
   let res = await axios.get(url);
 
   return res.data;
@@ -130,7 +133,8 @@ export async function checkUpload(video) {
 
 export async function removeVersion(version) {
   version = encodeData(version);
-  let url = BASE_URL + `?action=remove-version&data=${version}`;
+  let token = useCookie("token").value;
+  let url = BASE_URL + `?action=remove-version&data=${version}&token=${token}`;
   let res = await axios.get(url);
 
   return res.data;
