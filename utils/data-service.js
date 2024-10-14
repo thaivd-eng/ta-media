@@ -2,7 +2,7 @@ import axios from "axios";
 import fetchSheet from "./fetch-sheet.js";
 
 const SHEET_ID = "1HfJroyChryUnMnDnma7TP59Hhye5hz5SHs5mp37pY9c";
-const BASE_URL = "https://script.google.com/macros/s/AKfycbyZ-EKmSoXuYTwBEmAJqEOiWefvibzackFbS2h14lkdAR98rhTIwn5wSJw0E_Xmsezhng/exec";
+const BASE_URL = "https://script.google.com/macros/s/AKfycbz80xYONByei9JXHAG3B-YyHKJ5dcdn5jLU5FsUMEZKdC4MIeg6xxwLWnA-YQBdkVr6eA/exec";
 
 export async function signIn(userName, password) {
   let body = encodeData({ userName, password });
@@ -68,7 +68,8 @@ export async function find(collection) {
 // create data
 export async function create(collection, data) {
   data = encodeData(data);
-  let url = BASE_URL + `?action=create-${collection}&data=${data}`;
+  let token = useCookie("token").value;
+  let url = BASE_URL + `?action=create-${collection}&data=${data}&token=${token}`;
   let res = await axios.get(url);
 
   return res.data;
@@ -77,7 +78,8 @@ export async function create(collection, data) {
 // update data
 export async function update(collection, data) {
   data = encodeData(data);
-  let url = BASE_URL + `?action=update-${collection}&data=${data}`;
+  let token = useCookie("token").value;
+  let url = BASE_URL + `?action=update-${collection}&data=${data}&token=${token}`;
   let res = await axios.get(url);
 
   return res.data;
@@ -86,7 +88,8 @@ export async function update(collection, data) {
 // delete data
 export async function remove(collection, data) {
   data = encodeData(data);
-  let url = BASE_URL + `?action=remove-${collection}&data=${data}`;
+  let token = useCookie("token").value;
+  let url = BASE_URL + `?action=remove-${collection}&data=${data}&token=${token}`;
   let res = await axios.get(url);
 
   return res.data;
