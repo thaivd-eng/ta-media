@@ -246,6 +246,7 @@ function removeFeedback(id) {
 }
 
 function pauseVideo() {
+  inputFocus = true;
   player.pause();
 }
 
