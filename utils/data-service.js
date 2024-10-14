@@ -2,7 +2,7 @@ import axios from "axios";
 import fetchSheet from "./fetch-sheet.js";
 
 const SHEET_ID = "1HfJroyChryUnMnDnma7TP59Hhye5hz5SHs5mp37pY9c";
-const BASE_URL = "https://script.google.com/macros/s/AKfycbxTTMEEjjBXL6h4FWUi01S6j5DCXxmgtCBhBZiC9tpHzWVw_Ux4cMGwsL-BK_4V5ec6tQ/exec";
+const BASE_URL = "https://script.google.com/macros/s/AKfycbyZ-EKmSoXuYTwBEmAJqEOiWefvibzackFbS2h14lkdAR98rhTIwn5wSJw0E_Xmsezhng/exec";
 
 export async function signIn(userName, password) {
   let body = encodeData({ userName, password });
@@ -153,6 +153,15 @@ export async function removeFeedback(data) {
   data = encodeData(data);
   let token = useCookie("token").value;
   let url = BASE_URL + `?action=remove-feedback&data=${data}&token=${token}`;
+  let res = await axios.get(url);
+
+  return res.data;
+}
+
+export async function toggleDone (data) {
+  data = encodeData(data);
+  let token = useCookie("token").value;
+  let url = BASE_URL + `?action=toggle-done&data=${data}&token=${token}`;
   let res = await axios.get(url);
 
   return res.data;

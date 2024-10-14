@@ -32,7 +32,7 @@ function toggleDone() {
   let newData = Object.assign({}, currentVersion.value, { status: currentVersion.value.status == 1 ? 0 : 1 });
   store.setCurrentVersion(newData);
 
-  data.update('versions', newData);
+  data.toggleDone(newData);
 }
 
 function removeVersion() {
