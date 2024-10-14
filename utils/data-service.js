@@ -2,7 +2,7 @@ import axios from "axios";
 import fetchSheet from "./fetch-sheet.js";
 
 const SHEET_ID = "1HfJroyChryUnMnDnma7TP59Hhye5hz5SHs5mp37pY9c";
-const BASE_URL = "https://script.google.com/macros/s/AKfycbzb7yFoSRIehf_WOywCvBdu4hAr_R-TRQGJY1lDCBuHdh8PdIpK6P5xlJfoUrvtp8Mr7Q/exec";
+const BASE_URL = "https://script.google.com/macros/s/AKfycbxTTMEEjjBXL6h4FWUi01S6j5DCXxmgtCBhBZiC9tpHzWVw_Ux4cMGwsL-BK_4V5ec6tQ/exec";
 
 export async function signIn(userName, password) {
   let body = encodeData({ userName, password });
@@ -135,6 +135,24 @@ export async function removeVersion(version) {
   version = encodeData(version);
   let token = useCookie("token").value;
   let url = BASE_URL + `?action=remove-version&data=${version}&token=${token}`;
+  let res = await axios.get(url);
+
+  return res.data;
+}
+
+export async function createFeedback(data) {
+  data = encodeData(data);
+  let token = useCookie("token").value;
+  let url = BASE_URL + `?action=create-feedback&data=${data}&token=${token}`;
+  let res = await axios.get(url);
+
+  return res.data;
+}
+
+export async function removeFeedback(data) {
+  data = encodeData(data);
+  let token = useCookie("token").value;
+  let url = BASE_URL + `?action=remove-feedback&data=${data}&token=${token}`;
   let res = await axios.get(url);
 
   return res.data;

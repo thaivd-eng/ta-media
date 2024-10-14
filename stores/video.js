@@ -32,7 +32,7 @@ export const useVideoStore = defineStore("video", {
     removeFeedback(id) {
       let index = this.feedbacks.findIndex((f) => f.id == id);
       this.feedbacks.splice(index, 1);
-      data.remove("feedbacks", { id });
+      data.removeFeedback({ id });
     },
 
     async reset() {
@@ -86,7 +86,7 @@ export const useVideoStore = defineStore("video", {
         createdAt: new Date().toLocaleString("en-GB"),
       });
 
-      await data.create("feedbacks", {
+      await data.createFeedback({
         id,
         time,
         content,
