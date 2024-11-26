@@ -37,7 +37,8 @@ const chartData = computed(() => {
   videoData.value.forEach((v) => {
     // convert date string to Date object
     // format of createdAt: 'dd/mm/yyyy hh:mm:ss'
-    let date = new Date(v.createdAt.split(' ')[0].split('/').reverse());
+    let [y,m,d] = v.createdAt.split(' ')[0].split('/').reverse();
+	let date = new Date(y, m - 1, d);
 
     if (date.getFullYear() == currentYear) {
       let month = date.getMonth() + 1;
