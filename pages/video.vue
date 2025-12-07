@@ -17,11 +17,56 @@ const video = computed(() => store.video);
 const versions = computed(() => store.versions);
 
 
-const chat = ref([]);
+const chat = ref([
+	{
+		text: "Xin chào",
+		role: "user"
+	},
+	{
+		text: "Chào bạn! Tôi có thể giúp gì cho bạn hôm nay?",
+		role: "model"
+	},
+	{
+		text: "Tôi đang tìm kiếm thông tin về thời tiết ở Hà Nội ngày mai.",
+		role: "user"
+	},
+	{
+		text: "Để tôi kiểm tra giúp bạn. Vui lòng đợi một chút.",
+		role: "model"
+	},
+	{
+		text: "Cảm ơn bạn rất nhiều!",
+		role: "user"
+	},
+	{
+		text: "Không có gì. Theo dự báo, thời tiết Hà Nội ngày mai sẽ có nắng nhẹ và nhiệt độ khoảng 28 độ C.",
+		role: "model"
+	},
+	{
+		text: "Vậy có khả năng mưa không?",
+		role: "user"
+	},
+	{
+		text: "Dự báo không có mưa trong ngày mai, trời sẽ khô ráo và khá dễ chịu.",
+		role: "model"
+	},
+	{
+		text: "Tuyệt vời! Cảm ơn bạn. Bạn có thể cho tôi biết về tình hình giao thông hiện tại ở khu vực trung tâm Hà Nội không?",
+		role: "user"
+	},
+	{
+		text: "Tôi xin lỗi, chức năng của tôi chủ yếu tập trung vào thông tin thời tiết và một số chủ đề tổng quát. Tôi không có dữ liệu giao thông theo thời gian thực.",
+		role: "model"
+	},
+	{
+		text: "Ồ, tôi hiểu rồi. Không sao cả. Dù sao thì cũng cảm ơn bạn rất nhiều vì đã giúp đỡ về thông tin thời tiết nhé!",
+		role: "user"
+	}
+]);
 const chatId = ref(0);
 const isLoading2 = ref(false);
 const question = ref('');
-const showGemini = ref(false);
+const showGemini = ref(true);
 
 function askGemini() {
 	if (isLoading2.value || !question.value) return;
@@ -342,7 +387,7 @@ function uploadVideo() {
 
 			<!-- sidebar -->
 			<div class="relative shrink-0 w-full h-full flex flex-col  lg:w-96">
-				<div class="absolute top-0 left-0 right-0 bottom-0 rounded flex flex-col lg:overflow-y-scroll ">
+				<div :class="['absolute top-0 left-0 right-0 bottom-0 rounded flex flex-col', showGemini || 'lg:overflow-y-scroll']">
 
 					<!-- tabs -->
 					<div role="tablist" class="tabs tabs-boxed mb-6 sticky top-0">
@@ -352,24 +397,26 @@ function uploadVideo() {
 					<!-- end of tabs -->
 
 					<!-- gemini -->	
-					<div class="shrink-0 w-full h-auto flex flex-col bg-base-100" v-if="showGemini">
+					<div class="rounded border w-full h-full flex flex-col" v-if="showGemini">
 
-						<div class="rounded border p-6 w-full grow overflow-y-scroll">
-							<div v-for="item in chat" :class="['chat', item.role == 'user' ? 'chat-start' : 'chat-end']">
-								<div class="chat-bubble" v-html="item.text"></div>
+						<!-- chat bubble -->
+						<div class="relative w-full h-full bg-base-100">
+							<div class="absolute top-0 left-0 right-0 bottom-0 p-3 overflow-y-scroll">
+								<div v-for="item in chat" :class="['chat', item.role == 'user' ? 'chat-end' : 'chat-start']">
+									<div :class="['chat-bubble', item.role == 'user' && 'chat-bubble-primary']" v-html="item.text"></div>
+								</div>
 							</div>
 						</div>
 
-						<div class="p-3"></div>
-
 						<!-- chatbox -->
-						<form class="flex items-center gap-6" @submit.prevent="askGemini" >
+						<form class="mt-auto border-t p-3 flex items-center gap-3 bg-base-100" @submit.prevent="askgemini" >
 							<textarea v-model="question" class="input input-bordered grow"></textarea>
 							<button type="submit" class="btn btn-primary">
-								<span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
-								<span v-else>Gửi</span>
+								<span class="loading loading-spinner loading-xs" v-if="isloading2"></span>
+								<span v-else>gửi</span>
 							</button>
 						</form>
+
 					</div>
 					<!-- end of gemini -->
 
