@@ -299,122 +299,127 @@ function uploadVideo() {
 </script>
 
 <template>
-  <div class="w-full h-screen flex flex-col">
+	<div class="w-full h-screen flex flex-col bg-gray-100">
+
+		<!-- navbar -->
     <video-nav-bar @create-version="uploadVideo"/>
 
-    <div class="mx-auto p-6 container w-full h-full flex flex-col gap-3">
-      <video-skeleton v-if="isLoading" />
+		<!-- loader -->
+		<div class="p-6" v-if="isLoading">
+			<video-skeleton />
+		</div>
 
-      <!-- uploader -->
-      <div class="w-full min-h-screen flex flex-col justify-center items-center gap-3" v-if="!isLoading && (currentVersion && currentVersion.videoUrl == '') || !currentVersion">
-        <p>Chưa có video nào cả, hãy bắt đầu với một video mới</p>
-        <button class="btn btn-primary" @click="uploadVideo">Tải video</button>
-      </div>
+		<!-- uploader -->
+		<div class="w-full min-h-screen flex flex-col justify-center items-center gap-3" v-if="!isLoading && (currentVersion && currentVersion.videoUrl == '') || !currentVersion">
+			<p>Chưa có video nào cả, hãy bắt đầu với một video mới</p>
+			<button class="btn btn-primary" @click="uploadVideo">Tải video</button>
+		</div>
 
-      <!-- video + feedback -->
-      <div :class="['h-full flex flex-col gap-6 lg:flex-row', !isLoading && currentVersion && currentVersion.videoUrl || 'hidden']">
+		<!-- main content -->
+		<div :class="['p-6 w-full h-full flex flex-col gap-6  lg:flex-row', !isLoading && currentVersion && currentVersion.videoUrl || 'hidden']">
 
-        <!-- left -->
-        <div class="w-full flex flex-col gap-6">
-          <div>
-            <video 
-              id="video-player"
-              ref="videoPlayer"
-              data-setup='{}'
-              class="vjs-fill video-js aspect-video">
-            </video>
-          </div>
-
-          <form class="flex items-center gap-3" @submit.prevent="createFeedback">
-            <input class="input input-bordered w-full" v-model="newFeedback" @click="pauseVideo" />
-            <button type="submit" class="btn btn-square btn-primary">
-              <IconPaperPlane class="size-4" />
-            </button>
-            <label class="btn btn-square" for="modal_shortcut">
-              <IconQuestion class="size-4" />
-            </label>
-          </form>
-        </div>
-
-				<div class="h-full">
-
-				<div role="tablist" class="tabs tabs-boxed mb-6">
-					<a role="tab" :class="['tab', showGemini ? '' : 'tab-active']" @click="showGemini = !showGemini">Phản hồi</a>
-					<a role="tab" :class="['tab', showGemini ? 'tab-active' : '']" @click="showGemini = !showGemini">AI</a>
+			<!-- video -->
+			<div class="w-full flex flex-col gap-6">
+				<div>
+					<video 
+						id="video-player"
+						ref="videoPlayer"
+						data-setup='{}'
+						class="vjs-fill video-js aspect-video">
+					</video>
 				</div>
 
-        <!-- gemini -->	
-        <div class="shrink-0 w-full h-full flex flex-col bg-base-100 lg:w-96" v-if="showGemini">
+				<form class="flex items-center gap-3" @submit.prevent="createFeedback">
+					<input class="input input-bordered w-full" v-model="newFeedback" @click="pauseVideo" />
+					<button type="submit" class="btn btn-square btn-primary">
+						<IconPaperPlane class="size-4" />
+					</button>
+					<label class="btn btn-square" for="modal_shortcut">
+						<IconQuestion class="size-4" />
+					</label>
+				</form>
+			</div>
 
-					<div class="rounded border p-6 w-full grow overflow-y-scroll">
-						<div v-for="item in chat" :class="['chat', item.role == 'user' ? 'chat-start' : 'chat-end']">
-							<div class="chat-bubble" v-html="item.text"></div>
+			<!-- sidebar -->
+			<div class="relative shrink-0 w-full h-full flex flex-col  lg:w-96">
+				<div class="absolute top-0 left-0 right-0 bottom-0 rounded flex flex-col lg:overflow-y-scroll ">
+
+					<!-- tabs -->
+					<div role="tablist" class="tabs tabs-boxed mb-6 sticky top-0">
+						<a role="tab" :class="['tab', showGemini ? '' : 'tab-active']" @click="showGemini = !showGemini">Phản hồi</a>
+						<a role="tab" :class="['tab', showGemini ? 'tab-active' : '']" @click="showGemini = !showGemini">AI</a>
+					</div>
+					<!-- end of tabs -->
+
+					<!-- gemini -->	
+					<div class="shrink-0 w-full h-auto flex flex-col bg-base-100" v-if="showGemini">
+
+						<div class="rounded border p-6 w-full grow overflow-y-scroll">
+							<div v-for="item in chat" :class="['chat', item.role == 'user' ? 'chat-start' : 'chat-end']">
+								<div class="chat-bubble" v-html="item.text"></div>
+							</div>
+						</div>
+
+						<div class="p-3"></div>
+
+						<!-- chatbox -->
+						<form class="flex items-center gap-6" @submit.prevent="askGemini" >
+							<textarea v-model="question" class="input input-bordered grow"></textarea>
+							<button type="submit" class="btn btn-primary">
+								<span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
+								<span v-else>Gửi</span>
+							</button>
+						</form>
+					</div>
+					<!-- end of gemini -->
+
+					<!-- feedback -->
+					<div class="shrink-0 w-full h-auto flex flex-col gap-6 bg-base-100" v-if="!showGemini">
+						<div class="rounded border p-6 ">
+							<!-- project infomation -->
+							<div class="hidden">
+								<h2 class="mb-3 text-lg font-bold" v-if="feedbacks.length > 0">Các phản hồi</h2>
+								<div class="p-6 flex flex-col justify-center items-center gap-3" v-else>
+									<icon-circle-xmark class="size-12" />
+									<p>Chưa có phản hồi nào cả</p>
+								</div>
+							</div>
+
+							<!-- project feedback -->
+							<div class="h-full flex flex-col divide-y">
+								<div v-for="feedback in feedbacks" :id="'feedback-' + feedback.id" class="py-6 flex flex-col gap-1.5">
+									<div class="flex items-center gap-1.5">
+										<div class="rounded-full size-8 bg-primary"></div>
+										<span class="font-bold">{{ feedback.createdBy }}</span>
+										<span class="text-sm text-gray-400">{{ feedback.createdAt }}</span>
+									</div>
+									<div>
+										<a href="javascript:void(0)" @click="onFeedbackClick(feedback.id)" class="mr-1.5 font-bold text-primary">
+											{{ feedback.timeFormated }} 
+										</a>
+										<span>{{ feedback.content }}</span>
+									</div>
+									<div class="flex gap-3">
+										<button class="btn btn-circle btn-xs btn-ghost">
+											<IconThumbsUp class="size-6 fill-primary" />
+										</button>
+										<button class="btn btn-circle btn-xs btn-ghost">
+											<IconCommentDots class="size-6 fill-primary" />
+										</button>
+										<button class="ml-auto btn btn-circle btn-xs btn-ghost" @click="removeFeedback(feedback.id)">
+											<IconTrash class="size-5 fill-error" />
+										</button>
+									</div>
+								</div>
+							</div>
 						</div>
 					</div>
-
-					<div class="p-3"></div>
-
-					<!-- chatbox -->
-					<form class="flex items-center gap-6" @submit.prevent="askGemini" >
-						<textarea v-model="question" class="input input-bordered grow"></textarea>
-						<button type="submit" class="btn btn-primary">
-							<span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
-							<span v-else>Gửi</span>
-						</button>
-					</form>
+					<!-- end of feedback -->
 
 				</div>
-        <!-- end of gemini -->
-				 
+			</div>
 
-        <!-- feedback -->
-        <div class="shrink-0 w-full h-full flex flex-col gap-6 bg-base-100 overflow-y-scroll lg:w-96" v-if="!showGemini">
-        <div class="rounded border p-6 ">
-          <!-- project infomation -->
-          <div class="hidden">
-            <h2 class="mb-3 text-lg font-bold" v-if="feedbacks.length > 0">Các phản hồi</h2>
-            <div class="p-6 flex flex-col justify-center items-center gap-3" v-else>
-              <icon-circle-xmark class="size-12" />
-              <p>Chưa có phản hồi nào cả</p>
-            </div>
-          </div>
-
-          <!-- project feedback -->
-          <div class="h-full flex flex-col divide-y">
-            <div v-for="feedback in feedbacks" :id="'feedback-' + feedback.id" class="py-6 flex flex-col gap-1.5">
-              <div class="flex items-center gap-1.5">
-                <div class="rounded-full size-8 bg-primary"></div>
-                <span class="font-bold">{{ feedback.createdBy }}</span>
-                <span class="text-sm text-gray-400">{{ feedback.createdAt }}</span>
-              </div>
-              <div>
-                <a href="javascript:void(0)" @click="onFeedbackClick(feedback.id)" class="mr-1.5 font-bold text-primary">
-                  {{ feedback.timeFormated }} 
-                </a>
-                <span>{{ feedback.content }}</span>
-              </div>
-              <div class="flex gap-3">
-                <button class="btn btn-circle btn-xs btn-ghost">
-                  <IconThumbsUp class="size-6 fill-primary" />
-                </button>
-                <button class="btn btn-circle btn-xs btn-ghost">
-                  <IconCommentDots class="size-6 fill-primary" />
-                </button>
-                <button class="ml-auto btn btn-circle btn-xs btn-ghost" @click="removeFeedback(feedback.id)">
-                  <IconTrash class="size-5 fill-error" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        </div>
-
-      </div>
-			<!-- mhu mhu mhu -->
-
-      </div>
-
-    </div>
+		</div>
 
     <!-- Floating action button to go back to /projects -->
     <NuxtLink to="/projects" class="btn btn-circle btn-primary fixed bottom-6 right-6">
@@ -437,5 +442,6 @@ function uploadVideo() {
       </div>
       <label class="modal-backdrop" for="modal_shortcut">Thoát</label>
     </div>
-  </div>
+
+	</div>
 </template>
