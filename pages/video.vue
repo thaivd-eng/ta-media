@@ -17,52 +17,7 @@ const video = computed(() => store.video);
 const versions = computed(() => store.versions);
 
 
-const chat = ref([
-	{
-		text: "Xin chào",
-		role: "user"
-	},
-	{
-		text: "Chào bạn! Tôi có thể giúp gì cho bạn hôm nay?",
-		role: "model"
-	},
-	{
-		text: "Tôi đang tìm kiếm thông tin về thời tiết ở Hà Nội ngày mai.",
-		role: "user"
-	},
-	{
-		text: "Để tôi kiểm tra giúp bạn. Vui lòng đợi một chút.",
-		role: "model"
-	},
-	{
-		text: "Cảm ơn bạn rất nhiều!",
-		role: "user"
-	},
-	{
-		text: "Không có gì. Theo dự báo, thời tiết Hà Nội ngày mai sẽ có nắng nhẹ và nhiệt độ khoảng 28 độ C.",
-		role: "model"
-	},
-	{
-		text: "Vậy có khả năng mưa không?",
-		role: "user"
-	},
-	{
-		text: "Dự báo không có mưa trong ngày mai, trời sẽ khô ráo và khá dễ chịu.",
-		role: "model"
-	},
-	{
-		text: "Tuyệt vời! Cảm ơn bạn. Bạn có thể cho tôi biết về tình hình giao thông hiện tại ở khu vực trung tâm Hà Nội không?",
-		role: "user"
-	},
-	{
-		text: "Tôi xin lỗi, chức năng của tôi chủ yếu tập trung vào thông tin thời tiết và một số chủ đề tổng quát. Tôi không có dữ liệu giao thông theo thời gian thực.",
-		role: "model"
-	},
-	{
-		text: "Ồ, tôi hiểu rồi. Không sao cả. Dù sao thì cũng cảm ơn bạn rất nhiều vì đã giúp đỡ về thông tin thời tiết nhé!",
-		role: "user"
-	}
-]);
+const chat = ref([]);
 const chatId = ref(0);
 const isLoading2 = ref(false);
 const question = ref('');
@@ -409,11 +364,11 @@ function uploadVideo() {
 						</div>
 
 						<!-- chatbox -->
-						<form class="mt-auto border-t p-3 flex items-center gap-3 bg-base-100" @submit.prevent="askgemini" >
+						<form class="mt-auto border-t p-3 flex items-center gap-3 bg-base-100" @submit.prevent="askGemini" >
 							<textarea v-model="question" class="input input-bordered grow"></textarea>
 							<button type="submit" class="btn btn-primary">
-								<span class="loading loading-spinner loading-xs" v-if="isloading2"></span>
-								<span v-else>gửi</span>
+								<span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
+								<span v-else>Gửi</span>
 							</button>
 						</form>
 
