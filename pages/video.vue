@@ -356,7 +356,10 @@ function uploadVideo() {
 
 						<!-- chat bubble -->
 						<div class="relative w-full h-full bg-base-100">
-							<div class="absolute top-0 left-0 right-0 bottom-0 p-3 overflow-y-scroll">
+							<div class="w-full h-full flex justify-center items-center" v-if="chat.length < 1">
+								<p>Chưa có tin nhắn</p>
+							</div>
+							<div class="absolute top-0 left-0 right-0 bottom-0 p-3 overflow-y-scroll" v-else>
 								<div v-for="item in chat" :class="['chat', item.role == 'user' ? 'chat-end' : 'chat-start']">
 									<div :class="['chat-bubble', item.role == 'user' && 'chat-bubble-primary']" v-html="item.text"></div>
 								</div>
