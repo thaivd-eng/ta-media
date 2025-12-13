@@ -44,7 +44,10 @@ function signIn() {
         <input type="password" class="input input-bordered w-full" v-model="password" required />
       </label>
       <div class="p-3"></div>
-			<nuxt-link to="/register" class="link link-secondary text-center">Chưa có tài khoản?</nuxt-link>
+      <div class="flex justify-between items-center">
+        <nuxt-link to="/register" class="link link-secondary text-center">Chưa có tài khoản?</nuxt-link>
+        <nuxt-link to="/reset-password" class="link link-secondary text-center">Quên mật khẩu</nuxt-link>
+      </div>
       <button type="submit" class="btn btn-primary">
         <span class="loading loading-spinner loading-xs" v-if="isLoading"></span>
         <span v-if="isLoading">Đang xử lý...</span>

@@ -180,3 +180,14 @@ export async function register(bodyData) {
 
   return data.data;
 }
+
+export async function resetPassword(userName) {
+  let body = encodeData({ userName });
+  let url = BASE_URL + "?action=reset-password&data=" + body;
+  let res = await axios.get(url);
+
+  let data = res.data;
+  if (data.status == "error") throw Error(data.message);
+
+  return data.data;
+}
