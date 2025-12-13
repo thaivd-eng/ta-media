@@ -2,7 +2,7 @@ import axios from "axios";
 import fetchSheet from "./fetch-sheet.js";
 
 const SHEET_ID = "1HfJroyChryUnMnDnma7TP59Hhye5hz5SHs5mp37pY9c";
-const BASE_URL = "https://script.google.com/macros/s/AKfycbz80xYONByei9JXHAG3B-YyHKJ5dcdn5jLU5FsUMEZKdC4MIeg6xxwLWnA-YQBdkVr6eA/exec";
+const BASE_URL = "https://script.google.com/macros/s/AKfycbwIxRsFoSaNhGcdlBGRLnrDFiTxRwi8EhTt3BAZyV7K14wmMvlHc-_P6smmhwkkLVpOIg/exec";
 
 export async function signIn(userName, password) {
   let body = encodeData({ userName, password });
@@ -168,4 +168,15 @@ export async function toggleDone (data) {
   let res = await axios.get(url);
 
   return res.data;
+}
+
+export async function register(bodyData) {
+  let body = encodeData(bodyData);
+  let url = BASE_URL + "?action=register&data=" + body;
+  let res = await axios.get(url);
+
+  let data = res.data;
+  if (data.status == "error") throw Error(data.message);
+
+  return data.data;
 }

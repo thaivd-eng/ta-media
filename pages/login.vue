@@ -30,7 +30,7 @@ function signIn() {
 <template>
   <div class="app">
     <form class="form-login" @submit.prevent="signIn">
-      <h1 class="text-2xl font-bold">Đăng nhập</h1>
+      <h1 class="text-2xl font-bold text-center">Đăng nhập</h1>
       <label class="form-control w-full">
         <div class="label">
           <span class="label-text">UserName</span>
@@ -44,6 +44,7 @@ function signIn() {
         <input type="password" class="input input-bordered w-full" v-model="password" required />
       </label>
       <div class="p-3"></div>
+			<nuxt-link to="/register" class="link link-secondary text-center">Chưa có tài khoản?</nuxt-link>
       <button type="submit" class="btn btn-primary">
         <span class="loading loading-spinner loading-xs" v-if="isLoading"></span>
         <span v-if="isLoading">Đang xử lý...</span>
