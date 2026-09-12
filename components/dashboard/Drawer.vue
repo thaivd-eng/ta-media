@@ -17,9 +17,11 @@ const isActive = (path) => {
         <div class="size-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/25 p-2 transition-transform duration-300 group-hover:scale-105">
           <img src="~/assets/images/logo.webp" alt="logo" class="size-full object-contain filter brightness-0 invert" />
         </div>
-        <div>
+        <div class="min-w-0 flex-1">
           <h1 class="text-lg font-extrabold text-slate-900 tracking-tight leading-none">MediaAI</h1>
-          <p class="text-[11px] font-medium text-blue-600 mt-1 tracking-wide">VIDEO FEEDBACK</p>
+          <p class="text-[10px] font-semibold text-blue-600 mt-1 leading-tight line-clamp-2">
+            Trợ lý Giám định & Đánh giá Tiêu chuẩn Kỹ thuật Nội dung Số
+          </p>
         </div>
       </NuxtLink>
 

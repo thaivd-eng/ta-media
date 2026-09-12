@@ -67,7 +67,7 @@ function register() {
             Tạo tài khoản mới
           </h1>
           <p class="text-slate-500 text-sm mt-1.5 font-medium">
-            Đăng ký để tham gia và cộng tác phản hồi video
+            Trợ lý Giám định & Đánh giá Tiêu chuẩn Kỹ thuật Nội dung Số
           </p>
         </div>
 

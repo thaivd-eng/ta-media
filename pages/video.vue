@@ -54,10 +54,14 @@ async function askGemini() {
 		await fetchData();
 		isLoading2.value = false;
 	} catch (error) {
+    let errorMsg = error?.response?.data?.message || error?.message || 'Có lỗi xảy ra khi kết nối với AI';
+    if (error?.message?.includes('Network Error')) {
+      errorMsg = 'Không thể kết nối đến máy chủ AI (Google Apps Script bị từ chối truy cập hoặc lỗi CORS). Vui lòng kiểm tra quyền "Anyone" của Web App.';
+    }
 		Swal.fire({
 			icon: 'error',
-			title: 'Oops...',
-			text: error
+			title: 'Lỗi phản hồi AI',
+			text: errorMsg
 		});
 		isLoading2.value = false;
 	}
@@ -79,18 +83,66 @@ const feedbacks = computed(() => {
   return store.feedbacks;
 });
 
+const playerMode = ref('html5'); // 'html5' | 'drive'
+const playerHasError = ref(false);
+
+const driveFileId = computed(() => {
+  if (!currentVersion.value) return '';
+  const v = currentVersion.value;
+  // If version has direct drive id
+  if (v.id && typeof v.id === 'string' && v.id.length > 15 && !/^\d+$/.test(v.id)) {
+    return v.id;
+  }
+  if (v.videoUrl) {
+    const m = v.videoUrl.match(/files\/([a-zA-Z0-9_-]+)/) ||
+              v.videoUrl.match(/id=([a-zA-Z0-9_-]+)/) ||
+              v.videoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (m) return m[1];
+  }
+  if (v.id && typeof v.id === 'string' && !/^\d+$/.test(v.id)) {
+    return v.id;
+  }
+  return '';
+});
+
+const drivePreviewUrl = computed(() => {
+  if (!driveFileId.value) return '';
+  return `https://drive.google.com/file/d/${driveFileId.value}/preview`;
+});
+
+const driveDirectOpenUrl = computed(() => {
+  if (!driveFileId.value) return '';
+  return `https://drive.google.com/file/d/${driveFileId.value}/view`;
+});
+
 const currentVersion = computed(() => {
   if (player && store.currentVersion) {
-    player.reset();
-
-    player.src({
-      src: store.currentVersion.videoUrl,
-      type: 'video/mp4'
-    });
+    updatePlayerSource();
   }
 
   return store.currentVersion;
 });
+
+function updatePlayerSource() {
+  if (!player || !store.currentVersion || !store.currentVersion.videoUrl) return;
+  playerHasError.value = false;
+  player.reset();
+
+  const url = store.currentVersion.videoUrl;
+  const fileId = driveFileId.value;
+
+  const sources = [];
+  if (url) {
+    sources.push({ src: url });
+    sources.push({ src: url, type: 'video/mp4' });
+  }
+  if (fileId) {
+    sources.push({ src: `https://lh3.googleusercontent.com/d/${fileId}` });
+    sources.push({ src: `https://drive.google.com/uc?export=download&id=${fileId}` });
+  }
+
+  player.src(sources);
+}
 
 const uploadUrl = computed(() => {
   if (!video.value) return;
@@ -116,30 +168,38 @@ onMounted(() => {
     if (e.key === 'f') {
       if (inputFocus) return;
 
-      document.querySelector('.input').focus();
-      player.pause();
+      document.querySelector('.input')?.focus();
+      if (player && typeof player.pause === 'function') player.pause();
       inputFocus = true;
     }
     if (e.key === ' ') {
       if (inputFocus) return;
-      player.paused() ? player.play() : player.pause();
+      if (player && typeof player.paused === 'function') {
+        player.paused() ? player.play() : player.pause();
+      }
     }
     if (e.key === 'ArrowRight') {
-      player.currentTime(player.currentTime() + 5);
+      if (player && typeof player.currentTime === 'function') {
+        player.currentTime(player.currentTime() + 5);
+      }
     }
     if (e.key === 'ArrowLeft') {
-      player.currentTime(player.currentTime() - 5);
+      if (player && typeof player.currentTime === 'function') {
+        player.currentTime(player.currentTime() - 5);
+      }
     }
 
     if (e.key === 'Escape') {
-      document.querySelector('.input').blur();
+      document.querySelector('.input')?.blur();
       inputFocus = false;
     }
   });
 });
 
 onBeforeUnmount(() => {
-  player.dispose();
+  if (player && typeof player.dispose === 'function') {
+    player.dispose();
+  }
 });
 
 async function fetchData() {
@@ -149,10 +209,7 @@ async function fetchData() {
 
   if (!currentVersion.value) return;
 
-  player.src({
-    src: currentVersion.value.videoUrl,
-    type: 'video/mp4'
-  });
+  updatePlayerSource();
 
 	// get conversation
 	chat.value = await findConversation({
@@ -174,6 +231,14 @@ function initPlayer() {
     autoplay: false,
     controls: true,
   }, callback);
+
+  player.on('error', () => {
+    console.warn('Video.js failed to load HTML5 media. Auto-switching to Drive preview.');
+    playerHasError.value = true;
+    if (driveFileId.value) {
+      playerMode.value = 'drive';
+    }
+  });
 }
 
 function createMarker(player, marker) {
@@ -203,19 +268,26 @@ const newFeedback = ref('');
 async function createFeedback() {
   if (!newFeedback.value) return;
 
-  let time = player.currentTime();
+  let time = 0;
+  if (player && typeof player.currentTime === 'function') {
+    try { time = player.currentTime() || 0; } catch {}
+  }
+
   let content = newFeedback.value;
   let id = Date.now();
 
-  createMarker(player, { id, time, content });
+  if (player && typeof player.duration === 'function' && player.duration() > 0) {
+    try { createMarker(player, { id, time, content }); } catch {}
+  }
 
-  player.play();
+  if (player && typeof player.play === 'function') {
+    try { player.play(); } catch {}
+  }
+
   newFeedback.value = '';
-
   store.createFeedback({ id, time, content });
 
   inputFocus = false;
-  document.querySelector('video').focus();
 }
 
 async function onToggleModalUpload() {
@@ -237,10 +309,15 @@ async function onToggleModalUpload() {
 
 function onFeedbackClick(id) {
   let feedback = feedbacks.value.find((feedback) => feedback.id == id);
-  let time = feedback.time;
+  if (!feedback) return;
 
-  player.currentTime(time);
-  player.pause();
+  let time = feedback.time;
+  if (player && typeof player.currentTime === 'function') {
+    try {
+      player.currentTime(time);
+      player.pause();
+    } catch {}
+  }
 }
 
 function removeFeedback(id) {
@@ -347,15 +424,128 @@ function uploadVideo() {
       ]"
     >
 			<!-- Left: Video Player & Feedback Input -->
-			<div class="flex-1 flex flex-col gap-4 min-w-0 overflow-hidden">
+			<div class="flex-1 flex flex-col gap-3 min-w-0 overflow-hidden">
+        <!-- Player Mode Toolbar -->
+        <div class="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
+          <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-xs">
+            <button
+              type="button"
+              :class="[
+                'px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
+                playerMode === 'html5'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ]"
+              @click="playerMode = 'html5'"
+            >
+              <IconCirclePlay class="size-3.5 fill-current" />
+              <span>Trình phát HTML5</span>
+            </button>
+
+            <button
+              v-if="driveFileId"
+              type="button"
+              :class="[
+                'px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
+                playerMode === 'drive'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+              ]"
+              @click="playerMode = 'drive'"
+            >
+              <svg class="size-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M7.71 3.5L1.15 15l3.43 6 6.55-11.5M9.73 15L6.3 21h13.12l3.43-6M22.85 13.5l-6.56-11.5H9.72l6.56 11.5"/>
+              </svg>
+              <span>Trình phát Google Drive (Đa định dạng)</span>
+            </button>
+          </div>
+
+          <a
+            v-if="driveDirectOpenUrl"
+            :href="driveDirectOpenUrl"
+            target="_blank"
+            class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-300 font-semibold shadow-xs flex items-center gap-1.5 transition-all"
+          >
+            <span>Mở file gốc trên Drive</span>
+            <svg class="size-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </div>
+
+        <!-- Drive Player Fallback Notice -->
+        <div v-if="playerMode === 'drive' && playerHasError" class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200/80 text-blue-800 text-xs shadow-xs animate-fadeIn">
+          <div class="flex items-center gap-2">
+            <span class="relative flex size-2 shrink-0">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full size-2 bg-blue-600"></span>
+            </span>
+            <span>Đã tự động chuyển sang <strong>Trình phát Google Drive</strong> (Tương thích định dạng MKV, MOV, tệp dung lượng >100MB & ảnh).</span>
+          </div>
+          <button type="button" @click="playerMode = 'html5'" class="text-[11px] font-semibold text-blue-700 hover:text-blue-900 underline shrink-0 cursor-pointer">
+            Thử lại HTML5
+          </button>
+        </div>
+
         <!-- Video Container -->
-				<div class="relative bg-black rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 border border-slate-800 flex-1 flex items-center justify-center">
-					<video 
-						id="video-player"
-						ref="videoPlayer"
-						data-setup='{}'
-						class="vjs-fill video-js w-full h-full">
-					</video>
+				<div class="relative bg-slate-950 rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 border border-slate-800 flex-1 flex items-center justify-center min-h-[360px]">
+					<!-- HTML5 Player -->
+          <div :class="['w-full h-full flex items-center justify-center', playerMode === 'html5' ? 'block' : 'hidden']">
+            <video 
+              id="video-player"
+              ref="videoPlayer"
+              data-setup='{}'
+              class="vjs-fill video-js w-full h-full">
+            </video>
+          </div>
+
+          <!-- Google Drive Embedded Player -->
+          <div :class="['w-full h-full', playerMode === 'drive' ? 'block' : 'hidden']" v-if="driveFileId">
+            <iframe
+              :src="drivePreviewUrl"
+              class="w-full h-full border-none"
+              allow="autoplay; encrypted-media"
+              allowfullscreen>
+            </iframe>
+          </div>
+
+          <!-- Error recovery overlay when HTML5 player cannot load media -->
+          <div
+            v-if="playerMode === 'html5' && playerHasError"
+            class="absolute inset-0 bg-slate-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-6 text-center z-20 text-white"
+          >
+            <div class="size-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center mb-3 ring-4 ring-amber-500/10">
+              <IconQuestion class="size-7 fill-current" />
+            </div>
+            <h3 class="text-base font-bold text-white mb-1">Không thể tải luồng video trực tiếp</h3>
+            <p class="text-xs text-slate-300 max-w-md mb-5 leading-relaxed">
+              Tệp này có thể là định dạng MKV, MOV, AVI, file ảnh hoặc Google Drive yêu cầu xác nhận quét virus đối với file lớn.
+            </p>
+            <div class="flex flex-wrap items-center justify-center gap-3">
+              <button
+                v-if="driveFileId"
+                type="button"
+                @click="playerMode = 'drive'"
+                class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg shadow-blue-600/30 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <svg class="size-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M7.71 3.5L1.15 15l3.43 6 6.55-11.5M9.73 15L6.3 21h13.12l3.43-6M22.85 13.5l-6.56-11.5H9.72l6.56 11.5"/>
+                </svg>
+                <span>Xem bằng Trình phát Google Drive</span>
+              </button>
+              <a
+                v-if="driveDirectOpenUrl"
+                :href="driveDirectOpenUrl"
+                target="_blank"
+                class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-xs transition-all flex items-center gap-1.5"
+              >
+                <span>Mở trong tab mới</span>
+                <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+            </div>
+          </div>
 				</div>
 
         <!-- Add Feedback Control Bar -->
