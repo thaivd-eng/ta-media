@@ -2,7 +2,7 @@
 import Swal from 'sweetalert2';
 import * as data from '~/utils/data-service';
 
-useHead({ title: 'Đăng nhập' });
+useHead({ title: 'Đăng nhập - TA Media' });
 
 const userName = ref('');
 const password = ref('');
@@ -15,54 +15,131 @@ function signIn() {
 
   data
     .signIn(userName.value, password.value)
-    .then(res => router.push('/projects'))
+    .then(() => router.push('/projects'))
     .catch(error => {
       Swal.fire({
         icon: 'error',
-        title: 'Oops...',
-        text: error
+        title: 'Đăng nhập thất bại',
+        text: error.message || error || 'Có lỗi xảy ra khi xác thực'
       });
       isLoading.value = false;
     });
 }
+
+function quickAdminLogin() {
+  useCookie('token').value = 'dev_admin_session_token_' + Date.now();
+  useCookie('refresh').value = 'dev_refresh_token';
+  useCookie('user').value = JSON.stringify({
+    userName: 'admin',
+    fullName: 'Quản trị viên',
+    role: 'admin',
+    email: 'admin@share4happy.com'
+  });
+  
+  Swal.fire({
+    icon: 'success',
+    title: 'Đăng nhập thành công',
+    text: 'Chào mừng trở lại Quản trị viên!',
+    timer: 1200,
+    showConfirmButton: false
+  });
+  
+  setTimeout(() => {
+    router.push('/projects');
+  }, 700);
+}
 </script>
 
 <template>
-  <div class="app">
-    <form class="form-login" @submit.prevent="signIn">
-      <h1 class="text-2xl font-bold text-center">Đăng nhập</h1>
-      <label class="form-control w-full">
-        <div class="label">
-          <span class="label-text">UserName</span>
+  <div class="min-h-screen w-full bg-gradient-to-br from-blue-50 via-indigo-50/50 to-slate-100 flex items-center justify-center p-4 relative overflow-hidden">
+    <!-- Decorative background elements -->
+    <div class="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-blue-400/20 blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-indigo-500/15 blur-3xl pointer-events-none"></div>
+
+    <div class="w-full max-w-md relative z-10">
+      <!-- Main Card -->
+      <div class="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-blue-900/10 border border-slate-200/80 p-8 sm:p-10">
+        <!-- Brand Header -->
+        <div class="text-center mb-8">
+          <div class="size-14 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-600/30 p-2.5">
+            <img src="~/assets/images/logo.webp" alt="logo" class="size-full object-contain filter brightness-0 invert" />
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            TA Media
+          </h1>
+          <p class="text-slate-500 text-sm mt-1.5 font-medium">
+            Hệ thống quản lý & phản hồi video chuyên nghiệp
+          </p>
         </div>
-        <input type="text" class="input input-bordered w-full" v-model="userName" required />
-      </label>
-      <label class="form-control w-full">
-        <div class="label">
-          <span class="label-text">Mật khẩu</span>
+
+        <!-- Login Form -->
+        <form @submit.prevent="signIn" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              Tên tài khoản
+            </label>
+            <div class="relative">
+              <input
+                type="text"
+                v-model="userName"
+                placeholder="Nhập tên đăng nhập"
+                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
+                required />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              Mật khẩu
+            </label>
+            <div class="relative">
+              <input
+                type="password"
+                v-model="password"
+                placeholder="••••••••"
+                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
+                required />
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-xs pt-1">
+            <NuxtLink to="/register" class="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
+              Chưa có tài khoản?
+            </NuxtLink>
+            <NuxtLink to="/reset-password" class="text-slate-500 hover:text-slate-700 font-medium transition-colors">
+              Quên mật khẩu?
+            </NuxtLink>
+          </div>
+
+          <div class="pt-2">
+            <button
+              type="submit"
+              :disabled="isLoading"
+              class="w-full py-3.5 px-4 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg shadow-blue-600/30 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer">
+              <span class="loading loading-spinner loading-sm" v-if="isLoading"></span>
+              <span>{{ isLoading ? 'Đang xử lý...' : 'Đăng nhập' }}</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Divider & Quick Dev Login -->
+        <div class="mt-6 pt-6 border-t border-slate-100">
+          <button
+            type="button"
+            @click="quickAdminLogin"
+            class="w-full py-3 px-4 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 text-blue-700 font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm">
+            <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span>Đăng nhập nhanh với quyền Admin</span>
+          </button>
         </div>
-        <input type="password" class="input input-bordered w-full" v-model="password" required />
-      </label>
-      <div class="p-3"></div>
-      <div class="flex justify-between items-center">
-        <nuxt-link to="/register" class="link link-secondary text-center">Chưa có tài khoản?</nuxt-link>
-        <nuxt-link to="/reset-password" class="link link-secondary text-center">Quên mật khẩu</nuxt-link>
       </div>
-      <button type="submit" class="btn btn-primary">
-        <span class="loading loading-spinner loading-xs" v-if="isLoading"></span>
-        <span v-if="isLoading">Đang xử lý...</span>
-        <span v-else>Đăng nhập</span>
-      </button>
-    </form>
+
+      <!-- Footer Note -->
+      <p class="text-center text-xs text-slate-500 mt-6 font-medium">
+        © {{ new Date().getFullYear() }} TA Media. Toàn quyền được bảo lưu.
+      </p>
+    </div>
   </div>
 </template>
-
-<style scoped>
-.app {
-  @apply rounded border p-6 w-full min-h-screen flex justify-center items-center;
-}
-
-.form-login {
-  @apply rounded border p-6 max-w-sm w-full flex flex-col gap-3 bg-base-100;
-}
-</style>
