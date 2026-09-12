@@ -4,7 +4,7 @@ import videojs from 'video.js';
 import 'video.js/dist/video-js.min.css';
 import Swal from 'sweetalert2';
 
-import { ask } from '~/utils/gemini';
+import { ask, findConversation, askVeo } from '~/utils/gemini';
 import { marked } from 'marked';
 
 var player = null;
@@ -16,14 +16,16 @@ const isLoading = ref(true);
 const video = computed(() => store.video);
 const versions = computed(() => store.versions);
 
-
 const chat = ref([]);
 const chatId = ref(0);
 const isLoading2 = ref(false);
 const question = ref('');
 const showGemini = ref(true);
+const showVeo = ref(true);
 
-function askGemini() {
+const user = useCookie('user').value;
+
+async function askGemini() {
 	if (isLoading2.value || !question.value) return;
 
 	isLoading2.value = true;
@@ -31,27 +33,34 @@ function askGemini() {
 	chat.value.push({
 		text: question.value,
 		role: 'user',
+		type: 'chat',
 	});
 
-	ask({
-		chatId: chatId.value,
+	let tempBody = {
 		question: question.value,
-		fileId: currentVersion.value.id
-	})
-	.then(data => {
-		chatId.value = data.id;
-		chat.value.push({
-			text: marked.parse(data.answer),
-			role: 'model'
-		});
+		fileId: currentVersion.value.id,
+		userId: user.id
+	};
 
+	try {
+		if (showGemini.value) {
+			await ask(tempBody);
+		}
+
+		else if (showVeo.value) {
+			await askVeo(tempBody);
+		}
+
+		await fetchData();
 		isLoading2.value = false;
-	})
-	.catch(error => Swal.fire({
-		icon: 'error',
-		title: 'Oops...',
-		text: error
-	}));
+	} catch (error) {
+		Swal.fire({
+			icon: 'error',
+			title: 'Oops...',
+			text: error
+		});
+		isLoading2.value = false;
+	}
 
 	question.value = '';
 }
@@ -144,6 +153,12 @@ async function fetchData() {
     src: currentVersion.value.videoUrl,
     type: 'video/mp4'
   });
+
+	// get conversation
+	chat.value = await findConversation({
+		fileId: currentVersion.value.id,
+		userId: user.id,
+	});
 }
 
 function initPlayer() {
@@ -346,13 +361,14 @@ function uploadVideo() {
 
 					<!-- tabs -->
 					<div role="tablist" class="tabs tabs-boxed mb-6 sticky top-0">
-						<a role="tab" :class="['tab', showGemini ? '' : 'tab-active']" @click="showGemini = !showGemini">Phản hồi</a>
-						<a role="tab" :class="['tab', showGemini ? 'tab-active' : '']" @click="showGemini = !showGemini">AI</a>
+						<a role="tab" :class="['tab', showGemini || showVeo ? '' : 'tab-active']" @click="showGemini = false; showVeo = false">Phản hồi</a>
+						<a role="tab" :class="['tab', showGemini && !showVeo ? 'tab-active' : '']" @click="showGemini = true; showVeo = false">AI</a>
+						<a role="tab" :class="['tab', showVeo && !showGemini ? 'tab-active' : '']" @click="showGemini = false; showVeo = true">Veo</a>
 					</div>
 					<!-- end of tabs -->
 
 					<!-- gemini -->	
-					<div class="rounded border w-full h-full flex flex-col" v-if="showGemini">
+					<div class="rounded border w-full h-full flex flex-col" v-if="showGemini && !showVeo">
 
 						<!-- chat bubble -->
 						<div class="relative w-full h-full bg-base-100">
@@ -361,7 +377,7 @@ function uploadVideo() {
 							</div>
 							<div class="absolute top-0 left-0 right-0 bottom-0 p-3 overflow-y-scroll" v-else>
 								<div v-for="item in chat" :class="['chat', item.role == 'user' ? 'chat-end' : 'chat-start']">
-									<div :class="['chat-bubble', item.role == 'user' && 'chat-bubble-primary']" v-html="item.text"></div>
+									<div v-if="item.type == 'chat'" :class="['chat-bubble', item.role == 'user' && 'chat-bubble-primary']" v-html="item.text"></div>
 								</div>
 							</div>
 						</div>
@@ -378,8 +394,44 @@ function uploadVideo() {
 					</div>
 					<!-- end of gemini -->
 
+					<!-- veo -->	
+					<div class="rounded border w-full h-full flex flex-col" v-if="!showGemini && showVeo">
+
+						<!-- chat bubble -->
+						<div class="relative w-full h-full bg-base-100">
+							<div class="w-full h-full flex justify-center items-center" v-if="chat.length < 1">
+								<p>Chưa có tin nhắn</p>
+							</div>
+							<div class="absolute top-0 left-0 right-0 bottom-0 p-3 overflow-y-scroll" v-else>
+								<div v-for="item in chat" :class="['chat', item.role == 'user' ? 'chat-end' : 'chat-start']">
+									<div v-if="item.type == 'image' && item.role == 'model'" :class="['chat-bubble', item.role == 'user' && 'chat-bubble-primary']" >
+										<img :src="item.text" class="rounded" />
+									</div>
+									<div v-if="item.type == 'video' && item.role == 'model'" :class="['chat-bubble', item.role == 'user' && 'chat-bubble-primary']" >
+								    <video width="640" height="360" controls class="rounded">
+											<source :src="item.text" type="video/mp4">
+											Your browser does not support the video tag.
+										</video>
+									</div>
+									<div v-if="item.role == 'user' && item.type != 'chat'" :class="['chat-bubble', item.role == 'user' && 'chat-bubble-primary']" v-html="item.text"></div>
+								</div>
+							</div>
+						</div>
+
+						<!-- chatbox -->
+						<form class="mt-auto border-t p-3 flex items-center gap-3 bg-base-100" @submit.prevent="askGemini" >
+							<textarea v-model="question" class="input input-bordered grow"></textarea>
+							<button type="submit" class="btn btn-primary">
+								<span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
+								<span v-else>Gửi</span>
+							</button>
+						</form>
+
+					</div>
+					<!-- end of veo -->
+
 					<!-- feedback -->
-					<div class="shrink-0 w-full h-auto flex flex-col gap-6 bg-base-100" v-if="!showGemini">
+					<div class="shrink-0 w-full h-auto flex flex-col gap-6 bg-base-100" v-if="!showGemini && !showVeo">
 						<div class="rounded border p-6 ">
 							<!-- project infomation -->
 							<div class="hidden">
@@ -427,7 +479,7 @@ function uploadVideo() {
 		</div>
 
     <!-- Floating action button to go back to /projects -->
-    <NuxtLink to="/projects" class="btn btn-circle btn-primary fixed bottom-6 right-6">
+    <NuxtLink to="/projects" class="btn btn-circle btn-primary fixed bottom-6 left-6">
       <IconHouse class="size-4" />
     </NuxtLink>
 
