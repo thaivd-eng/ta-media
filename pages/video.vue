@@ -424,69 +424,7 @@ function uploadVideo() {
       ]"
     >
 			<!-- Left: Video Player & Feedback Input -->
-			<div class="flex-1 flex flex-col gap-3 min-w-0 overflow-hidden">
-        <!-- Player Mode Toolbar -->
-        <div class="flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
-          <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-xs">
-            <button
-              type="button"
-              :class="[
-                'px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
-                playerMode === 'html5'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              ]"
-              @click="playerMode = 'html5'"
-            >
-              <IconCirclePlay class="size-3.5 fill-current" />
-              <span>Trình phát HTML5</span>
-            </button>
-
-            <button
-              v-if="driveFileId"
-              type="button"
-              :class="[
-                'px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
-                playerMode === 'drive'
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-              ]"
-              @click="playerMode = 'drive'"
-            >
-              <svg class="size-3.5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M7.71 3.5L1.15 15l3.43 6 6.55-11.5M9.73 15L6.3 21h13.12l3.43-6M22.85 13.5l-6.56-11.5H9.72l6.56 11.5"/>
-              </svg>
-              <span>Trình phát Google Drive (Đa định dạng)</span>
-            </button>
-          </div>
-
-          <a
-            v-if="driveDirectOpenUrl"
-            :href="driveDirectOpenUrl"
-            target="_blank"
-            class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:text-blue-600 hover:border-blue-300 font-semibold shadow-xs flex items-center gap-1.5 transition-all"
-          >
-            <span>Mở file gốc trên Drive</span>
-            <svg class="size-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
-        </div>
-
-        <!-- Drive Player Fallback Notice -->
-        <div v-if="playerMode === 'drive' && playerHasError" class="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-blue-50 border border-blue-200/80 text-blue-800 text-xs shadow-xs animate-fadeIn">
-          <div class="flex items-center gap-2">
-            <span class="relative flex size-2 shrink-0">
-              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-              <span class="relative inline-flex rounded-full size-2 bg-blue-600"></span>
-            </span>
-            <span>Đã tự động chuyển sang <strong>Trình phát Google Drive</strong> (Tương thích định dạng MKV, MOV, tệp dung lượng >100MB & ảnh).</span>
-          </div>
-          <button type="button" @click="playerMode = 'html5'" class="text-[11px] font-semibold text-blue-700 hover:text-blue-900 underline shrink-0 cursor-pointer">
-            Thử lại HTML5
-          </button>
-        </div>
-
+			<div class="flex-1 flex flex-col gap-4 min-w-0 overflow-hidden">
         <!-- Video Container -->
 				<div class="relative bg-slate-950 rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 border border-slate-800 flex-1 flex items-center justify-center min-h-[360px]">
 					<!-- HTML5 Player -->
