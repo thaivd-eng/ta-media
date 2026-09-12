@@ -314,191 +314,323 @@ function uploadVideo() {
 </script>
 
 <template>
-	<div class="w-full h-screen flex flex-col bg-gray-100">
+	<div class="w-full h-screen flex flex-col bg-slate-100/70 overflow-hidden select-none">
+		<!-- Navbar -->
+    <video-nav-bar @create-version="uploadVideo" />
 
-		<!-- navbar -->
-    <video-nav-bar @create-version="uploadVideo"/>
-
-		<!-- loader -->
-		<div class="p-6" v-if="isLoading">
+		<!-- Loader -->
+		<div class="p-6 flex-1 flex items-center justify-center" v-if="isLoading">
 			<video-skeleton />
 		</div>
 
-		<!-- uploader -->
-		<div class="w-full min-h-screen flex flex-col justify-center items-center gap-3" v-if="!isLoading && (currentVersion && currentVersion.videoUrl == '') || !currentVersion">
-			<p>Chưa có video nào cả, hãy bắt đầu với một video mới</p>
-			<button class="btn btn-primary" @click="uploadVideo">Tải video</button>
+		<!-- Uploader / Empty State -->
+		<div
+      class="flex-1 w-full flex flex-col justify-center items-center gap-4 p-8 text-center"
+      v-else-if="(!currentVersion || currentVersion.videoUrl == '')"
+    >
+      <div class="size-20 rounded-3xl bg-blue-50 flex items-center justify-center text-blue-600 ring-8 ring-blue-50/50 mb-2">
+        <IconCirclePlay class="size-10 fill-current" />
+      </div>
+			<h2 class="text-xl font-bold text-slate-800">Chưa có tệp video trong phiên bản này</h2>
+      <p class="text-sm text-slate-500 max-w-md">Hãy tải video lên thư mục để bắt đầu cùng đội ngũ xem, đánh dấu và thảo luận các mốc thời gian.</p>
+			<button class="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-md shadow-blue-600/25 transition-all flex items-center gap-2" @click="uploadVideo">
+        <IconPlus class="size-4 fill-current" />
+        <span>Tải video lên</span>
+      </button>
 		</div>
 
-		<!-- main content -->
-		<div :class="['p-6 w-full h-full flex flex-col gap-6  lg:flex-row', !isLoading && currentVersion && currentVersion.videoUrl || 'hidden']">
-
-			<!-- video -->
-			<div class="w-full flex flex-col gap-6">
-				<div>
+		<!-- Main Studio Content -->
+		<div
+      :class="[
+        'flex-1 w-full p-4 sm:p-6 overflow-hidden flex flex-col lg:flex-row gap-6',
+        (!isLoading && currentVersion && currentVersion.videoUrl) ? '' : 'hidden'
+      ]"
+    >
+			<!-- Left: Video Player & Feedback Input -->
+			<div class="flex-1 flex flex-col gap-4 min-w-0 overflow-hidden">
+        <!-- Video Container -->
+				<div class="relative bg-black rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 border border-slate-800 flex-1 flex items-center justify-center">
 					<video 
 						id="video-player"
 						ref="videoPlayer"
 						data-setup='{}'
-						class="vjs-fill video-js aspect-video">
+						class="vjs-fill video-js w-full h-full">
 					</video>
 				</div>
 
-				<form class="flex items-center gap-3" @submit.prevent="createFeedback">
-					<input class="input input-bordered w-full" v-model="newFeedback" @click="pauseVideo" />
-					<button type="submit" class="btn btn-square btn-primary">
-						<IconPaperPlane class="size-4" />
+        <!-- Add Feedback Control Bar -->
+				<form class="flex items-center gap-2.5 bg-white p-2.5 sm:p-3 rounded-2xl border border-slate-200/80 shadow-sm shrink-0" @submit.prevent="createFeedback">
+					<div class="relative flex-1">
+            <input
+              class="w-full pl-4 pr-12 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-xs sm:text-sm placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all font-medium"
+              v-model="newFeedback"
+              @click="pauseVideo"
+              placeholder="Nhập nhận xét tại thời điểm hiện tại... (Phím tắt: F)"
+            />
+          </div>
+					<button
+            type="submit"
+            class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-sm shadow-blue-600/20 transition-all shrink-0 active:scale-95"
+          >
+						<IconPaperPlane class="size-4 fill-current" />
+						<span class="hidden sm:inline">Gửi</span>
 					</button>
-					<label class="btn btn-square" for="modal_shortcut">
-						<IconQuestion class="size-4" />
+					<label
+            for="modal_shortcut"
+            class="size-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer transition-colors shrink-0"
+            title="Xem phím tắt"
+          >
+						<IconQuestion class="size-4 fill-current" />
 					</label>
 				</form>
 			</div>
 
-			<!-- sidebar -->
-			<div class="relative shrink-0 w-full h-full flex flex-col  lg:w-96">
-				<div :class="['absolute top-0 left-0 right-0 bottom-0 rounded flex flex-col', showGemini || 'lg:overflow-y-scroll']">
+			<!-- Right Sidebar: Feedback List / AI Assistant -->
+			<aside class="w-full lg:w-96 shrink-0 h-full flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+        <!-- Segmented Tab Header -->
+        <div class="p-3 border-b border-slate-100 bg-slate-50/70 shrink-0">
+          <div class="grid grid-cols-3 gap-1 bg-slate-200/60 p-1 rounded-xl text-xs font-semibold">
+            <button
+              type="button"
+              :class="[
+                'py-2 px-3 rounded-lg transition-all text-center flex items-center justify-center gap-1.5',
+                (!showGemini && !showVeo)
+                  ? 'bg-white text-blue-600 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              ]"
+              @click="showGemini = false; showVeo = false"
+            >
+              <span>Phản hồi</span>
+              <span class="px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 text-[10px]" v-if="feedbacks">{{ feedbacks.length }}</span>
+            </button>
 
-					<!-- tabs -->
-					<div role="tablist" class="tabs tabs-boxed mb-6 sticky top-0">
-						<a role="tab" :class="['tab', showGemini || showVeo ? '' : 'tab-active']" @click="showGemini = false; showVeo = false">Phản hồi</a>
-						<a role="tab" :class="['tab', showGemini && !showVeo ? 'tab-active' : '']" @click="showGemini = true; showVeo = false">AI</a>
-						<a role="tab" :class="['tab', showVeo && !showGemini ? 'tab-active' : '']" @click="showGemini = false; showVeo = true">Veo</a>
-					</div>
-					<!-- end of tabs -->
+            <button
+              type="button"
+              :class="[
+                'py-2 px-3 rounded-lg transition-all text-center flex items-center justify-center gap-1.5',
+                (showGemini && !showVeo)
+                  ? 'bg-white text-blue-600 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              ]"
+              @click="showGemini = true; showVeo = false"
+            >
+              <span>Gemini AI</span>
+            </button>
 
-					<!-- gemini -->	
-					<div class="rounded border w-full h-full flex flex-col" v-if="showGemini && !showVeo">
+            <button
+              type="button"
+              :class="[
+                'py-2 px-3 rounded-lg transition-all text-center flex items-center justify-center gap-1.5',
+                (showVeo && !showGemini)
+                  ? 'bg-white text-blue-600 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              ]"
+              @click="showGemini = false; showVeo = true"
+            >
+              <span>Veo Studio</span>
+            </button>
+          </div>
+        </div>
 
-						<!-- chat bubble -->
-						<div class="relative w-full h-full bg-base-100">
-							<div class="w-full h-full flex justify-center items-center" v-if="chat.length < 1">
-								<p>Chưa có tin nhắn</p>
-							</div>
-							<div class="absolute top-0 left-0 right-0 bottom-0 p-3 overflow-y-scroll" v-else>
-								<div v-for="item in chat" :class="['chat', item.role == 'user' ? 'chat-end' : 'chat-start']">
-									<div v-if="item.type == 'chat'" :class="['chat-bubble', item.role == 'user' && 'chat-bubble-primary']" v-html="item.text"></div>
-								</div>
-							</div>
-						</div>
+        <!-- Tab 1: Feedbacks List -->
+        <div class="flex-1 overflow-y-auto p-4 flex flex-col" v-if="!showGemini && !showVeo">
+          <div v-if="!feedbacks || feedbacks.length === 0" class="flex-1 flex flex-col items-center justify-center text-center p-6 text-slate-400">
+            <div class="size-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
+              <IconCommentDots class="size-6 fill-current" />
+            </div>
+            <p class="text-xs font-medium text-slate-600">Chưa có phản hồi nào</p>
+            <p class="text-[11px] text-slate-400 mt-1">Dừng video tại bất kỳ mốc thời gian nào và gửi nhận xét.</p>
+          </div>
 
-						<!-- chatbox -->
-						<form class="mt-auto border-t p-3 flex items-center gap-3 bg-base-100" @submit.prevent="askGemini" >
-							<textarea v-model="question" class="input input-bordered grow"></textarea>
-							<button type="submit" class="btn btn-primary">
-								<span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
-								<span v-else>Gửi</span>
-							</button>
-						</form>
+          <div v-else class="flex flex-col gap-3">
+            <div
+              v-for="feedback in feedbacks"
+              :key="feedback.id"
+              :id="'feedback-' + feedback.id"
+              class="p-3.5 rounded-xl border border-slate-100 hover:border-blue-200 bg-slate-50/40 hover:bg-blue-50/20 transition-all flex flex-col gap-2"
+            >
+              <!-- Author & Time -->
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <div class="size-7 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 text-white font-bold text-[11px] flex items-center justify-center shadow-xs">
+                    {{ feedback.createdBy ? feedback.createdBy.charAt(0).toUpperCase() : 'U' }}
+                  </div>
+                  <span class="text-xs font-bold text-slate-800">{{ feedback.createdBy }}</span>
+                </div>
+                <!-- Timecode clickable badge -->
+                <button
+                  type="button"
+                  @click="onFeedbackClick(feedback.id)"
+                  class="px-2 py-0.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-mono font-bold transition-colors flex items-center gap-1"
+                  title="Nhấn để tua đến thời điểm này"
+                >
+                  <IconCirclePlay class="size-3 fill-current" />
+                  <span>{{ feedback.timeFormated }}</span>
+                </button>
+              </div>
 
-					</div>
-					<!-- end of gemini -->
+              <!-- Content -->
+              <p class="text-xs text-slate-700 font-medium pl-9 leading-relaxed">
+                {{ feedback.content }}
+              </p>
 
-					<!-- veo -->	
-					<div class="rounded border w-full h-full flex flex-col" v-if="!showGemini && showVeo">
+              <!-- Actions -->
+              <div class="flex items-center justify-end gap-1 pt-1 border-t border-slate-100 text-slate-400">
+                <button
+                  type="button"
+                  class="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors"
+                  @click="removeFeedback(feedback.id)"
+                  title="Xoá nhận xét"
+                >
+                  <IconTrash class="size-3.5 fill-current" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
-						<!-- chat bubble -->
-						<div class="relative w-full h-full bg-base-100">
-							<div class="w-full h-full flex justify-center items-center" v-if="chat.length < 1">
-								<p>Chưa có tin nhắn</p>
-							</div>
-							<div class="absolute top-0 left-0 right-0 bottom-0 p-3 overflow-y-scroll" v-else>
-								<div v-for="item in chat" :class="['chat', item.role == 'user' ? 'chat-end' : 'chat-start']">
-									<div v-if="item.type == 'image' && item.role == 'model'" :class="['chat-bubble', item.role == 'user' && 'chat-bubble-primary']" >
-										<img :src="item.text" class="rounded" />
-									</div>
-									<div v-if="item.type == 'video' && item.role == 'model'" :class="['chat-bubble', item.role == 'user' && 'chat-bubble-primary']" >
-								    <video width="640" height="360" controls class="rounded">
-											<source :src="item.text" type="video/mp4">
-											Your browser does not support the video tag.
-										</video>
-									</div>
-									<div v-if="item.role == 'user' && item.type != 'chat'" :class="['chat-bubble', item.role == 'user' && 'chat-bubble-primary']" v-html="item.text"></div>
-								</div>
-							</div>
-						</div>
+        <!-- Tab 2: Gemini Chat -->
+        <div class="flex-1 flex flex-col overflow-hidden" v-if="showGemini && !showVeo">
+          <!-- Chat messages stream -->
+          <div class="flex-1 overflow-y-auto p-4 space-y-3">
+            <div v-if="chat.length === 0" class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+              <div class="size-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2">
+                <IconQuestion class="size-6 fill-current" />
+              </div>
+              <p class="text-xs font-bold text-slate-700">Trợ lý Video AI</p>
+              <p class="text-[11px] text-slate-400 mt-1 max-w-xs">Đặt câu hỏi về kịch bản, lời thoại hoặc gợi ý chỉnh sửa cho video này.</p>
+            </div>
 
-						<!-- chatbox -->
-						<form class="mt-auto border-t p-3 flex items-center gap-3 bg-base-100" @submit.prevent="askGemini" >
-							<textarea v-model="question" class="input input-bordered grow"></textarea>
-							<button type="submit" class="btn btn-primary">
-								<span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
-								<span v-else>Gửi</span>
-							</button>
-						</form>
+            <div v-for="(item, idx) in chat" :key="idx" :class="['flex flex-col', item.role === 'user' ? 'items-end' : 'items-start']">
+              <div
+                v-if="item.type === 'chat'"
+                :class="[
+                  'max-w-[85%] rounded-2xl px-4 py-2.5 text-xs font-medium leading-relaxed shadow-xs',
+                  item.role === 'user'
+                    ? 'bg-blue-600 text-white rounded-tr-xs'
+                    : 'bg-slate-100 text-slate-800 rounded-tl-xs border border-slate-200/80'
+                ]"
+                v-html="item.text"
+              ></div>
+            </div>
+          </div>
 
-					</div>
-					<!-- end of veo -->
+          <!-- Chat Input -->
+          <form class="p-3 border-t border-slate-100 bg-white flex items-center gap-2 shrink-0" @submit.prevent="askGemini">
+            <textarea
+              v-model="question"
+              rows="1"
+              placeholder="Hỏi trợ lý AI..."
+              class="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all resize-none"
+              @keydown.enter.exact.prevent="askGemini"
+            ></textarea>
+            <button
+              type="submit"
+              :disabled="isLoading2 || !question"
+              class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold transition-all shadow-xs shrink-0"
+            >
+              <span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
+              <span v-else>Gửi</span>
+            </button>
+          </form>
+        </div>
 
-					<!-- feedback -->
-					<div class="shrink-0 w-full h-auto flex flex-col gap-6 bg-base-100" v-if="!showGemini && !showVeo">
-						<div class="rounded border p-6 ">
-							<!-- project infomation -->
-							<div class="hidden">
-								<h2 class="mb-3 text-lg font-bold" v-if="feedbacks.length > 0">Các phản hồi</h2>
-								<div class="p-6 flex flex-col justify-center items-center gap-3" v-else>
-									<icon-circle-xmark class="size-12" />
-									<p>Chưa có phản hồi nào cả</p>
-								</div>
-							</div>
+        <!-- Tab 3: Veo Studio -->
+        <div class="flex-1 flex flex-col overflow-hidden" v-if="!showGemini && showVeo">
+          <!-- Chat messages stream -->
+          <div class="flex-1 overflow-y-auto p-4 space-y-3">
+            <div v-if="chat.length === 0" class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+              <div class="size-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
+                <IconCirclePlay class="size-6 fill-current" />
+              </div>
+              <p class="text-xs font-bold text-slate-700">Veo Video Generator</p>
+              <p class="text-[11px] text-slate-400 mt-1 max-w-xs">Tạo phân cảnh và b-roll mới bằng AI với mô hình Google Veo.</p>
+            </div>
 
-							<!-- project feedback -->
-							<div class="h-full flex flex-col divide-y">
-								<div v-for="feedback in feedbacks" :id="'feedback-' + feedback.id" class="py-6 flex flex-col gap-1.5">
-									<div class="flex items-center gap-1.5">
-										<div class="rounded-full size-8 bg-primary"></div>
-										<span class="font-bold">{{ feedback.createdBy }}</span>
-										<span class="text-sm text-gray-400">{{ feedback.createdAt }}</span>
-									</div>
-									<div>
-										<a href="javascript:void(0)" @click="onFeedbackClick(feedback.id)" class="mr-1.5 font-bold text-primary">
-											{{ feedback.timeFormated }} 
-										</a>
-										<span>{{ feedback.content }}</span>
-									</div>
-									<div class="flex gap-3">
-										<button class="btn btn-circle btn-xs btn-ghost">
-											<IconThumbsUp class="size-6 fill-primary" />
-										</button>
-										<button class="btn btn-circle btn-xs btn-ghost">
-											<IconCommentDots class="size-6 fill-primary" />
-										</button>
-										<button class="ml-auto btn btn-circle btn-xs btn-ghost" @click="removeFeedback(feedback.id)">
-											<IconTrash class="size-5 fill-error" />
-										</button>
-									</div>
-								</div>
-							</div>
-						</div>
-					</div>
-					<!-- end of feedback -->
+            <div v-for="(item, idx) in chat" :key="idx" :class="['flex flex-col', item.role === 'user' ? 'items-end' : 'items-start']">
+              <div v-if="item.type === 'image' && item.role === 'model'" class="rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-[85%]">
+                <img :src="item.text" class="w-full object-cover" />
+              </div>
+              <div v-else-if="item.type === 'video' && item.role === 'model'" class="rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-[85%]">
+                <video controls class="w-full">
+                  <source :src="item.text" type="video/mp4">
+                  Trình duyệt không hỗ trợ thẻ video.
+                </video>
+              </div>
+              <div
+                v-else
+                :class="[
+                  'max-w-[85%] rounded-2xl px-4 py-2.5 text-xs font-medium leading-relaxed shadow-xs',
+                  item.role === 'user'
+                    ? 'bg-blue-600 text-white rounded-tr-xs'
+                    : 'bg-slate-100 text-slate-800 rounded-tl-xs border border-slate-200/80'
+                ]"
+                v-html="item.text"
+              ></div>
+            </div>
+          </div>
 
-				</div>
-			</div>
-
+          <!-- Chat Input -->
+          <form class="p-3 border-t border-slate-100 bg-white flex items-center gap-2 shrink-0" @submit.prevent="askGemini">
+            <textarea
+              v-model="question"
+              rows="1"
+              placeholder="Yêu cầu tạo cảnh Veo..."
+              class="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all resize-none"
+              @keydown.enter.exact.prevent="askGemini"
+            ></textarea>
+            <button
+              type="submit"
+              :disabled="isLoading2 || !question"
+              class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-xs font-semibold transition-all shadow-xs shrink-0"
+            >
+              <span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
+              <span v-else>Tạo</span>
+            </button>
+          </form>
+        </div>
+			</aside>
 		</div>
 
     <!-- Floating action button to go back to /projects -->
-    <NuxtLink to="/projects" class="btn btn-circle btn-primary fixed bottom-6 left-6">
-      <IconHouse class="size-4" />
+    <NuxtLink
+      to="/projects"
+      class="fixed bottom-6 left-6 size-11 rounded-2xl bg-white text-slate-700 hover:text-blue-600 shadow-xl shadow-slate-900/10 border border-slate-200/80 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-20"
+      title="Về danh sách dự án"
+    >
+      <IconHouse class="size-4 fill-current" />
     </NuxtLink>
 
-    <!-- Modal shortcut -->
-    <input type="checkbox" id="modal_shortcut" class="modal-toggle" v-model="showModalEdit" />
-    <div class="modal z-[1002]" role="dialog">
-      <div class="modal-box flex flex-col gap-3">
-        <h3 class="text-lg font-bold">Các phím tắt</h3>
-        <table class="bg-base-100">
-          <tr class="border-b" v-for="shortcut in shortcuts">
-            <td class="p-3">
-              <kbd class="kbd">{{ shortcut.key }}</kbd>
-            </td>
-            <td class="px-3">{{ shortcut.description }}</td>
-          </tr>
-        </table>
-      </div>
-      <label class="modal-backdrop" for="modal_shortcut">Thoát</label>
-    </div>
+    <!-- Modal Shortcuts -->
+    <input type="checkbox" id="modal_shortcut" class="modal-toggle" />
+    <div class="modal modal-bottom sm:modal-middle" role="dialog">
+      <div class="modal-box bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-2xl max-w-md">
+        <div class="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+          <div class="size-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <IconQuestion class="size-5 fill-current" />
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">Danh sách phím tắt</h3>
+            <p class="text-xs text-slate-500">Tối ưu thao tác khi review và nhận xét video</p>
+          </div>
+        </div>
 
+        <div class="divide-y divide-slate-100 text-xs font-medium">
+          <div v-for="shortcut in shortcuts" :key="shortcut.key" class="py-2.5 flex items-center justify-between">
+            <span class="text-slate-600">{{ shortcut.description }}</span>
+            <kbd class="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 font-mono text-slate-800 text-[11px] font-bold shadow-xs">
+              {{ shortcut.key }}
+            </kbd>
+          </div>
+        </div>
+
+        <div class="modal-action pt-4 border-t border-slate-100">
+          <label for="modal_shortcut" class="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold cursor-pointer transition-colors w-full text-center">
+            Đã hiểu
+          </label>
+        </div>
+      </div>
+      <label class="modal-backdrop bg-slate-900/40 backdrop-blur-xs" for="modal_shortcut">Thoát</label>
+    </div>
 	</div>
 </template>

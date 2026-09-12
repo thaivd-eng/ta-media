@@ -2,7 +2,7 @@
 import Swal from 'sweetalert2';
 import * as data from '~/utils/data-service';
 
-useHead({ title: 'Đăng nhập - TA Media' });
+useHead({ title: 'Đăng nhập - MediaAI' });
 
 const userName = ref('');
 const password = ref('');
@@ -26,28 +26,6 @@ function signIn() {
     });
 }
 
-function quickAdminLogin() {
-  useCookie('token').value = 'dev_admin_session_token_' + Date.now();
-  useCookie('refresh').value = 'dev_refresh_token';
-  useCookie('user').value = JSON.stringify({
-    userName: 'admin',
-    fullName: 'Quản trị viên',
-    role: 'admin',
-    email: 'admin@share4happy.com'
-  });
-  
-  Swal.fire({
-    icon: 'success',
-    title: 'Đăng nhập thành công',
-    text: 'Chào mừng trở lại Quản trị viên!',
-    timer: 1200,
-    showConfirmButton: false
-  });
-  
-  setTimeout(() => {
-    router.push('/projects');
-  }, 700);
-}
 </script>
 
 <template>
@@ -65,10 +43,10 @@ function quickAdminLogin() {
             <img src="~/assets/images/logo.webp" alt="logo" class="size-full object-contain filter brightness-0 invert" />
           </div>
           <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            TA Media
+            MediaAI
           </h1>
           <p class="text-slate-500 text-sm mt-1.5 font-medium">
-            Hệ thống quản lý & phản hồi video chuyên nghiệp
+            Trợ lý Giám định & Đánh giá Tiêu chuẩn Kỹ thuật Nội dung Số
           </p>
         </div>
 
@@ -122,23 +100,11 @@ function quickAdminLogin() {
           </div>
         </form>
 
-        <!-- Divider & Quick Dev Login -->
-        <div class="mt-6 pt-6 border-t border-slate-100">
-          <button
-            type="button"
-            @click="quickAdminLogin"
-            class="w-full py-3 px-4 rounded-xl border border-blue-200 bg-blue-50/60 hover:bg-blue-100/70 text-blue-700 font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm">
-            <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <span>Đăng nhập nhanh với quyền Admin</span>
-          </button>
-        </div>
       </div>
 
       <!-- Footer Note -->
       <p class="text-center text-xs text-slate-500 mt-6 font-medium">
-        © {{ new Date().getFullYear() }} TA Media. Toàn quyền được bảo lưu.
+        © {{ new Date().getFullYear() }} MediaAI – Trợ lý Giám định & Đánh giá Tiêu chuẩn Kỹ thuật Nội dung Số.
       </p>
     </div>
   </div>

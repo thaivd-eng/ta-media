@@ -46,13 +46,15 @@ const chartData = computed(() => {
     }
   });
 
-  let chartData = {
+    let chartData = {
     labels: Object.keys(months),
     datasets: [
       {
-        label: 'videos',
+        label: 'Video mới tạo',
         data: Object.values(months),
-        backgroundColor: '#ffc90c',
+        backgroundColor: '#2563eb',
+        hoverBackgroundColor: '#1d4ed8',
+        borderRadius: 8,
       },
     ],
   }
@@ -70,7 +72,7 @@ const projects = ref(0);
 const videos = ref(0);
 const versions = ref(0);
 const feedbacks = ref(0);
-const videoData = ref(null);
+const videoData = ref([]);
 
 async function fetchData() {
   let _projects = (await data.find('projects')).filter((p) => p.isDisabled != 1);
@@ -90,35 +92,89 @@ async function fetchData() {
 <template>
   <report-skeleton v-if="isLoading" />
 
-  <div class="p-6 w-full min-h-screen flex flex-col gap-6" v-else>
-    <!-- stats -->
-    <div class="flex flex-col gap-6 lg:flex-row">
-      <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
-        <IconCircleCheck class="size-12 fill-primary" />
-        <span class="text-4xl font-bold">{{ projects }}</span>
-        <span>Dự án</span>
+  <div class="max-w-7xl mx-auto p-4 sm:p-8 flex flex-col gap-6 w-full" v-else>
+    <!-- Header banner -->
+    <div class="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Thống kê hoạt động</h1>
+        <p class="text-xs sm:text-sm text-slate-500 mt-1">Tổng quan số lượng dự án, video và phản hồi trên toàn hệ thống</p>
       </div>
-      <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
-        <IconCirclePlay class="size-12 fill-primary" />
-        <span class="text-4xl font-bold">{{ videos }}</span>
-        <span>Videos</span>
-      </div>
-      <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
-        <IconCodeBranch class="size-12 fill-primary" />
-        <span class="text-4xl font-bold">{{ versions }}</span>
-        <span>Phiên bản</span>
-      </div>
-      <div class="rounded border aspect-square w-full flex flex-col justify-center items-center gap-3 bg-base-100">
-        <IconCommentDots class="size-12 fill-primary" />
-        <span class="text-4xl font-bold">{{ feedbacks }}</span>
-        <span>Phản hồi</span>
+
+      <div class="px-3.5 py-1.5 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold self-start sm:self-center">
+        Năm {{ new Date().getFullYear() }}
       </div>
     </div>
 
-    <!-- chart -->
-    <div class="rounded border p-6 w-full bg-base-100">
-      <h2 class="mb-3 text-xl font-bold text-center">Số video đã tạo trong tháng</h2>
-      <BarChart :chartData="chartData" />
+    <!-- Stats Cards Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      <!-- Card 1 -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-blue-200 transition-all flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Dự án</span>
+          <div class="size-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <IconCircleCheck class="size-5 fill-current" />
+          </div>
+        </div>
+        <div>
+          <span class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">{{ projects }}</span>
+          <p class="text-xs text-slate-500 mt-1 font-medium">Dự án đang hoạt động</p>
+        </div>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-blue-200 transition-all flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Video</span>
+          <div class="size-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <IconCirclePlay class="size-5 fill-current" />
+          </div>
+        </div>
+        <div>
+          <span class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">{{ videos }}</span>
+          <p class="text-xs text-slate-500 mt-1 font-medium">Tổng số video được tải</p>
+        </div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-blue-200 transition-all flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Phiên bản</span>
+          <div class="size-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center">
+            <IconCodeBranch class="size-5 fill-current" />
+          </div>
+        </div>
+        <div>
+          <span class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">{{ versions }}</span>
+          <p class="text-xs text-slate-500 mt-1 font-medium">Phiên bản đã cập nhật</p>
+        </div>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-blue-200 transition-all flex flex-col justify-between">
+        <div class="flex items-center justify-between mb-4">
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Phản hồi</span>
+          <div class="size-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
+            <IconCommentDots class="size-5 fill-current" />
+          </div>
+        </div>
+        <div>
+          <span class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">{{ feedbacks }}</span>
+          <p class="text-xs text-slate-500 mt-1 font-medium">Nhận xét & đánh giá</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chart Card -->
+    <div class="rounded-3xl border border-slate-200/80 p-6 sm:p-8 bg-white shadow-xs">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-900">Biểu đồ video tạo theo tháng</h2>
+          <p class="text-xs text-slate-500">Thống kê số lượng video được khởi tạo qua từng tháng trong năm</p>
+        </div>
+      </div>
+      <div class="w-full h-80 sm:h-96">
+        <BarChart :chartData="chartData" />
+      </div>
     </div>
   </div>
 </template>

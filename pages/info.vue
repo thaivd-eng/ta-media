@@ -17,12 +17,14 @@ onBeforeMount(async () => {
 </script>
 
 <template>
-  <div class="mx-auto p-6 container">
-    <div class="w-full min-h-screen flex items-center justify-center gap-3" v-if="isLoading">
-      <span class="loading loading-ring loading-sm"></span>
-      <p>Đang tải dữ liệu...</p>
+  <div class="max-w-4xl mx-auto p-4 sm:p-8">
+    <div class="w-full py-20 flex flex-col items-center justify-center gap-3 text-slate-400" v-if="isLoading">
+      <span class="loading loading-spinner text-blue-600 loading-md"></span>
+      <p class="text-xs font-medium">Đang tải thông tin hệ thống...</p>
     </div>
 
-    <div v-html="html"></div>
+    <div v-else class="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-10 shadow-xs">
+      <div class="prose prose-slate max-w-none leading-relaxed text-sm sm:text-base" v-html="html"></div>
+    </div>
   </div>
 </template>
