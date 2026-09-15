@@ -30,6 +30,7 @@ const newProject = ref({
   name: '',
   description: '',
   createdBy: '',
+  thumbnailUrl: '',
 });
 const showModalCreate = ref(false);
 
@@ -38,8 +39,121 @@ const selectedProject = ref({
   description: '',
   createdBy: '',
   createdAt: '',
+  thumbnailUrl: '',
+  folderId: '',
 });
 const showModalEdit = ref(false);
+
+const createFileInput = ref(null);
+const editFileInput = ref(null);
+const showUrlInputCreate = ref(false);
+const showUrlInputEdit = ref(false);
+
+// Local storage caching for instant and offline thumbnail persistence
+function saveLocalThumbnail(projectId, dataUrl) {
+  if (!process.client || !projectId || !dataUrl) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem('mediaai_thumbnails') || '{}');
+    saved[String(projectId)] = dataUrl;
+    localStorage.setItem('mediaai_thumbnails', JSON.stringify(saved));
+  } catch (e) {}
+}
+
+function getLocalThumbnail(projectId) {
+  if (!process.client || !projectId) return null;
+  try {
+    const saved = JSON.parse(localStorage.getItem('mediaai_thumbnails') || '{}');
+    return saved[String(projectId)] || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function removeLocalThumbnail(projectId) {
+  if (!process.client || !projectId) return;
+  try {
+    const saved = JSON.parse(localStorage.getItem('mediaai_thumbnails') || '{}');
+    delete saved[String(projectId)];
+    localStorage.setItem('mediaai_thumbnails', JSON.stringify(saved));
+  } catch (e) {}
+}
+
+// Compress uploaded local image with Canvas to keep file lightweight (~15-30KB Data URL)
+function compressImage(file, callback) {
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_WIDTH = 720;
+      const MAX_HEIGHT = 405;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+        }
+      } else {
+        if (height > MAX_HEIGHT) {
+          width = Math.round((width * MAX_HEIGHT) / height);
+          height = MAX_HEIGHT;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+      callback(dataUrl);
+    };
+    img.src = event.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleFileUpload(event, type) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    swal.fire({
+      icon: 'warning',
+      title: 'Tệp không hợp lệ',
+      text: 'Vui lòng chọn tệp hình ảnh (JPG, PNG, WEBP,...)',
+    });
+    return;
+  }
+
+  compressImage(file, (dataUrl) => {
+    if (type === 'create') {
+      newProject.value.thumbnailUrl = dataUrl;
+    } else {
+      selectedProject.value.thumbnailUrl = dataUrl;
+    }
+  });
+
+  event.target.value = '';
+}
+
+function triggerFileInput(type) {
+  if (type === 'create') {
+    createFileInput.value?.click();
+  } else {
+    editFileInput.value?.click();
+  }
+}
+
+function clearThumbnail(type) {
+  if (type === 'create') {
+    newProject.value.thumbnailUrl = '';
+  } else {
+    selectedProject.value.thumbnailUrl = '';
+  }
+}
 
 onBeforeMount(async () => {
   newProject.value.createdBy = currentUser.value.userName || 'admin';
@@ -49,9 +163,13 @@ onBeforeMount(async () => {
 
   let thumbnails = await data.find('thumbnails');
   projects.value = _projects.map((p) => {
-    if (p.thumbnailUrl) return p;
-    let thumbnail = thumbnails.find((t) => t.projectId == p.id);
-    if (thumbnail) p.thumbnailUrl = thumbnail.thumbnailUrl;
+    let localThumb = getLocalThumbnail(p.id);
+    if (localThumb) {
+      p.thumbnailUrl = localThumb;
+    } else if (!p.thumbnailUrl) {
+      let thumbnail = thumbnails.find((t) => t.projectId == p.id);
+      if (thumbnail) p.thumbnailUrl = thumbnail.thumbnailUrl;
+    }
     return p;
   });
 
@@ -74,21 +192,45 @@ async function createProject() {
   isLoading2.value = true;
 
   try {
-    let result = await data.createProject(newProject.value);
-    projects.value.unshift(result.data);
+    const uploadedThumb = newProject.value.thumbnailUrl;
+    let form = {
+      name: newProject.value.name,
+      description: newProject.value.description,
+      createdBy: currentUser.value.userName || 'admin',
+      thumbnailUrl: uploadedThumb?.startsWith('data:') ? '' : (uploadedThumb || ''),
+    };
+    let result = await data.createProject(form);
+    let created = result?.data || {
+      id: Date.now(),
+      ...form,
+      createdAt: new Date().toLocaleString('en-GB'),
+      isDisabled: 0,
+    };
+    if (uploadedThumb) {
+      created.thumbnailUrl = uploadedThumb;
+      if (created.id) {
+        saveLocalThumbnail(created.id, uploadedThumb);
+      }
+    }
+    projects.value.unshift(created);
 
-    newProject.value.name = '';
-    newProject.value.description = '';
+    newProject.value = {
+      name: '',
+      description: '',
+      createdBy: '',
+      thumbnailUrl: '',
+    };
     showModalCreate.value = false;
 
     swal.fire({
       icon: 'success',
       title: 'Thành công',
-      text: 'Cuộc thi mới đã được khởi tạo!',
-      timer: 1500,
+      text: 'Cuộc thi và thư mục Google Drive đã được khởi tạo!',
+      timer: 1800,
       showConfirmButton: false,
     });
   } catch (err) {
+    console.error('Create project error:', err);
     swal.fire({
       icon: 'error',
       title: 'Lỗi',
@@ -112,6 +254,7 @@ function deleteProject(project) {
     if (result.isConfirmed) {
       data.update('projects', { id: project.id, isDisabled: 1 });
       projects.value = projects.value.filter((p) => p.id !== project.id);
+      removeLocalThumbnail(project.id);
       swal.fire({
         icon: 'success',
         title: 'Đã xóa!',
@@ -125,6 +268,10 @@ function deleteProject(project) {
 
 function showEditProject(project) {
   selectedProject.value = JSON.parse(JSON.stringify(project));
+  let localThumb = getLocalThumbnail(project.id);
+  if (localThumb) {
+    selectedProject.value.thumbnailUrl = localThumb;
+  }
   showModalEdit.value = true;
 }
 
@@ -133,6 +280,11 @@ function updateProject() {
   let index = projects.value.findIndex((p) => p.id == selectedProject.value.id);
   if (index !== -1) {
     projects.value[index] = JSON.parse(JSON.stringify(selectedProject.value));
+  }
+  if (selectedProject.value.thumbnailUrl) {
+    saveLocalThumbnail(selectedProject.value.id, selectedProject.value.thumbnailUrl);
+  } else {
+    removeLocalThumbnail(selectedProject.value.id);
   }
   showModalEdit.value = false;
   swal.fire({
@@ -167,15 +319,38 @@ function updateProject() {
           </div>
         </div>
 
-        <!-- Add project button -->
+        <!-- Add project button (chỉ hiển thị cho admin / judge) -->
         <label
+          v-if="user?.role !== 'student'"
           for="modal_create"
           class="cursor-pointer px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95 whitespace-nowrap"
         >
           <IconPlus class="size-4 fill-current" />
           <span>Tạo cuộc thi mới</span>
         </label>
+        <NuxtLink
+          v-else
+          to="/student"
+          class="px-4 py-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs sm:text-sm flex items-center gap-2 transition-all shrink-0"
+        >
+          <span>🎓 Cổng Sinh viên</span>
+          <span>→</span>
+        </NuxtLink>
       </div>
+    </div>
+
+    <!-- Student Notice Banner -->
+    <div v-if="user?.role === 'student'" class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-4 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md shadow-blue-600/15">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🎓</span>
+        <div>
+          <h4 class="font-bold text-sm">Chào mừng sinh viên đến với Hệ thống Cuộc thi!</h4>
+          <p class="text-xs text-blue-100">Chọn một cuộc thi bên dưới để nộp video dự thi hoặc quay về Cổng Sinh viên để theo dõi bài thi của bạn.</p>
+        </div>
+      </div>
+      <NuxtLink to="/student" class="px-4 py-2 rounded-xl bg-white hover:bg-blue-50 text-blue-700 font-extrabold text-xs shadow-sm transition-all shrink-0">
+        Về Cổng Sinh Viên →
+      </NuxtLink>
     </div>
 
     <!-- Skeleton Loading -->
@@ -245,10 +420,81 @@ function updateProject() {
             <input
               type="text"
               v-model="newProject.name"
-              placeholder="VD: Cuộc thi sáng tạo Video 2026"
               class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
               required
             />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              Ảnh bìa cuộc thi <span class="text-slate-400 font-normal normal-case">(Tùy chọn)</span>
+            </label>
+            
+            <!-- Hidden file input -->
+            <input
+              type="file"
+              ref="createFileInput"
+              accept="image/*"
+              class="hidden"
+              @change="handleFileUpload($event, 'create')"
+            />
+
+            <!-- Preview if image selected -->
+            <div v-if="newProject.thumbnailUrl" class="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 group">
+              <div class="aspect-video w-full">
+                <img :src="data.formatThumbnailUrl(newProject.thumbnailUrl)" class="w-full h-full object-cover" referrerpolicy="no-referrer" />
+              </div>
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  @click="triggerFileInput('create')"
+                  class="px-3 py-1.5 rounded-lg bg-white/95 hover:bg-white text-slate-800 text-xs font-semibold shadow transition-all cursor-pointer"
+                >
+                  Đổi ảnh khác
+                </button>
+                <button
+                  type="button"
+                  @click="clearThumbnail('create')"
+                  class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow transition-all cursor-pointer"
+                >
+                  Xóa ảnh
+                </button>
+              </div>
+            </div>
+
+            <!-- Upload zone if no image -->
+            <div v-else class="flex flex-col gap-2">
+              <button
+                type="button"
+                @click="triggerFileInput('create')"
+                class="w-full py-5 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl flex flex-col items-center justify-center gap-2 bg-slate-50/60 hover:bg-blue-50/40 transition-all cursor-pointer text-slate-600 hover:text-blue-600 group"
+              >
+                <div class="size-11 rounded-2xl bg-blue-50 group-hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors">
+                  <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <span class="text-xs font-semibold text-slate-700 group-hover:text-blue-600">Tải ảnh từ máy tính lên</span>
+                <span class="text-[11px] text-slate-400">Hỗ trợ JPG, PNG, WEBP</span>
+              </button>
+
+              <div class="text-right">
+                <button
+                  type="button"
+                  @click="showUrlInputCreate = !showUrlInputCreate"
+                  class="text-[11px] font-semibold text-blue-600 hover:underline cursor-pointer"
+                >
+                  {{ showUrlInputCreate ? 'Ẩn ô dán link' : 'Hoặc dán URL ảnh trực tiếp' }}
+                </button>
+              </div>
+
+              <input
+                v-if="showUrlInputCreate"
+                type="text"
+                v-model="newProject.thumbnailUrl"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+              />
+            </div>
           </div>
 
           <div>
@@ -258,7 +504,6 @@ function updateProject() {
             <textarea
               v-model="newProject.description"
               rows="3"
-              placeholder="Nhập mô tả tóm tắt nội dung cuộc thi..."
               class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
             ></textarea>
           </div>
@@ -292,7 +537,7 @@ function updateProject() {
           </div>
           <div>
             <h3 class="text-lg font-bold text-slate-900">Chỉnh sửa thông tin cuộc thi</h3>
-            <p class="text-xs text-slate-500">Cập nhật tên hoặc mô tả của cuộc thi</p>
+            <p class="text-xs text-slate-500">Cập nhật tên, ảnh bìa hoặc mô tả của cuộc thi</p>
           </div>
         </div>
 
@@ -306,6 +551,89 @@ function updateProject() {
               v-model="selectedProject.name"
               class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
               required
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              Ảnh bìa cuộc thi <span class="text-slate-400 font-normal normal-case">(Tùy chọn)</span>
+            </label>
+            
+            <!-- Hidden file input -->
+            <input
+              type="file"
+              ref="editFileInput"
+              accept="image/*"
+              class="hidden"
+              @change="handleFileUpload($event, 'edit')"
+            />
+
+            <!-- Preview if image selected -->
+            <div v-if="selectedProject.thumbnailUrl" class="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 group">
+              <div class="aspect-video w-full">
+                <img :src="data.formatThumbnailUrl(selectedProject.thumbnailUrl)" class="w-full h-full object-cover" referrerpolicy="no-referrer" />
+              </div>
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  @click="triggerFileInput('edit')"
+                  class="px-3 py-1.5 rounded-lg bg-white/95 hover:bg-white text-slate-800 text-xs font-semibold shadow transition-all cursor-pointer"
+                >
+                  Đổi ảnh khác
+                </button>
+                <button
+                  type="button"
+                  @click="clearThumbnail('edit')"
+                  class="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow transition-all cursor-pointer"
+                >
+                  Xóa ảnh
+                </button>
+              </div>
+            </div>
+
+            <!-- Upload zone if no image -->
+            <div v-else class="flex flex-col gap-2">
+              <button
+                type="button"
+                @click="triggerFileInput('edit')"
+                class="w-full py-5 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl flex flex-col items-center justify-center gap-2 bg-slate-50/60 hover:bg-blue-50/40 transition-all cursor-pointer text-slate-600 hover:text-blue-600 group"
+              >
+                <div class="size-11 rounded-2xl bg-blue-50 group-hover:bg-blue-100 text-blue-600 flex items-center justify-center transition-colors">
+                  <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <span class="text-xs font-semibold text-slate-700 group-hover:text-blue-600">Tải ảnh từ máy tính lên</span>
+                <span class="text-[11px] text-slate-400">Hỗ trợ JPG, PNG, WEBP</span>
+              </button>
+
+              <div class="text-right">
+                <button
+                  type="button"
+                  @click="showUrlInputEdit = !showUrlInputEdit"
+                  class="text-[11px] font-semibold text-blue-600 hover:underline cursor-pointer"
+                >
+                  {{ showUrlInputEdit ? 'Ẩn ô dán link' : 'Hoặc dán URL ảnh trực tiếp' }}
+                </button>
+              </div>
+
+              <input
+                v-if="showUrlInputEdit"
+                type="text"
+                v-model="selectedProject.thumbnailUrl"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              ID Thư mục Google Drive
+            </label>
+            <input
+              type="text"
+              v-model="selectedProject.folderId"
+              class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
             />
           </div>
 

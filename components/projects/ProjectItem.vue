@@ -13,6 +13,19 @@ const validThumbnailUrl = computed(() => {
   return formatThumbnailUrl(props.project.thumbnailUrl);
 });
 
+const userCookie = useCookie('user');
+const isStudent = computed(() => {
+  if (!userCookie.value) return false;
+  if (typeof userCookie.value === 'string') {
+    try {
+      return JSON.parse(userCookie.value).role === 'student';
+    } catch {
+      return false;
+    }
+  }
+  return userCookie.value?.role === 'student';
+});
+
 function onClickDelete() {
   emits('clickDelete', props.project);
 }
@@ -65,8 +78,8 @@ function onClickEdit() {
         </p>
       </NuxtLink>
 
-      <!-- Action Dropdown -->
-      <div class="dropdown dropdown-end">
+      <!-- Action Dropdown (chỉ hiển thị cho admin / judge) -->
+      <div class="dropdown dropdown-end" v-if="!isStudent">
         <div tabindex="0" role="button" class="btn btn-sm btn-circle btn-ghost text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
           <IconEllipsis class="size-4 fill-current" />
         </div>

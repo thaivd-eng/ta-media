@@ -55,7 +55,12 @@ function signOut() {
           </div>
           <div class="hidden md:flex flex-col text-left">
             <span class="text-xs font-bold text-slate-800 leading-tight">{{ user ? (user.fullName || user.userName) : 'Tài khoản' }}</span>
-            <span class="text-[10px] font-medium text-slate-400 capitalize">{{ user && user.role ? user.role : 'Thành viên' }}</span>
+            <span class="text-[10px] font-semibold text-blue-600 flex items-center gap-1 mt-0.5">
+              <span v-if="user?.role === 'judge'">⚖️ Giám khảo</span>
+              <span v-else-if="user?.role === 'admin'">🛡️ Quản trị viên</span>
+              <span v-else-if="user?.role === 'student'">🎓 Sinh viên {{ user?.studentId ? `(${user.studentId})` : '' }}</span>
+              <span v-else>Thành viên</span>
+            </span>
           </div>
         </div>
 

@@ -15,7 +15,14 @@ function signIn() {
 
   data
     .signIn(userName.value, password.value)
-    .then(() => router.push('/projects'))
+    .then((res) => {
+      const role = res?.user?.role;
+      if (role === 'student') {
+        router.push('/student');
+      } else {
+        router.push('/projects');
+      }
+    })
     .catch(error => {
       Swal.fire({
         icon: 'error',

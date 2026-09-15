@@ -9,6 +9,9 @@ const password = ref('');
 const phone = ref('');
 const email = ref('');
 const fullName = ref('');
+const role = ref('student');
+const studentId = ref('');
+const className = ref('');
 const isLoading = ref(false);
 const router = useRouter();
 
@@ -16,33 +19,46 @@ function register() {
   if (isLoading.value) return;
   isLoading.value = true;
 
-	let body = {
-		userName: userName.value,
-		password: password.value,
-		phone: phone.value,
-		email: email.value,
-		avatarUrl: '',
-		fullName: fullName.value,
-		role: '',
-		createdAt: new Date(),
-		isDisabled: 0
-	};
+  let body = {
+    userName: userName.value,
+    password: password.value,
+    phone: phone.value,
+    email: email.value,
+    avatarUrl: '',
+    fullName: fullName.value,
+    role: role.value,
+    studentId: role.value === 'student' ? studentId.value : '',
+    className: role.value === 'student' ? className.value : '',
+    createdAt: new Date(),
+    isDisabled: 0
+  };
 
   data
     .register(body)
-    .then(res => {
-			Swal.fire({
+    .then(async res => {
+      Swal.fire({
         icon: 'success',
-        title: 'Thành công',
-        text: 'Đã đăng ký tài khoản thành công'
+        title: 'Đăng ký thành công!',
+        text: 'Tài khoản của bạn đã được khởi tạo. Đang chuyển hướng...',
+        timer: 1200,
+        showConfirmButton: false,
       });
-			router.push('/login');
-		})
+      try {
+        await data.signIn(userName.value, password.value);
+        if (role.value === 'student') {
+          router.push('/student');
+        } else {
+          router.push('/projects');
+        }
+      } catch {
+        router.push('/login');
+      }
+    })
     .catch(error => {
       Swal.fire({
         icon: 'error',
-        title: 'Oops...',
-        text: error
+        title: 'Lỗi đăng ký',
+        text: error?.message || error
       });
       isLoading.value = false;
     });
@@ -67,12 +83,37 @@ function register() {
             Tạo tài khoản mới
           </h1>
           <p class="text-slate-500 text-sm mt-1.5 font-medium">
-            Trợ lý Giám định & Đánh giá Tiêu chuẩn Kỹ thuật Nội dung Số
+            Hệ thống Nộp bài, Chấm điểm & Bình chọn Video Cuộc thi
           </p>
         </div>
 
         <!-- Register Form -->
         <form @submit.prevent="register" class="space-y-4">
+          <!-- Role Selection -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              Vai trò tham gia <span class="text-rose-500">*</span>
+            </label>
+            <div class="grid grid-cols-2 gap-2 p-1 bg-slate-100/90 rounded-2xl border border-slate-200">
+              <button
+                type="button"
+                @click="role = 'student'"
+                :class="['py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer', role === 'student' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800']"
+              >
+                <span>🎓</span>
+                <span>Thí sinh / Sinh viên</span>
+              </button>
+              <button
+                type="button"
+                @click="role = 'judge'"
+                :class="['py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer', role === 'judge' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800']"
+              >
+                <span>⚖️</span>
+                <span>Ban Giám khảo</span>
+              </button>
+            </div>
+          </div>
+
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
               Họ và tên <span class="text-rose-500">*</span>
@@ -80,10 +121,35 @@ function register() {
             <input
               type="text"
               v-model="fullName"
-              placeholder="VD: Nguyễn Văn A"
-              class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
+              class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
               required
             />
+          </div>
+
+          <!-- Student specific fields -->
+          <div v-if="role === 'student'" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                Mã sinh viên (MSSV) <span class="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                v-model="studentId"
+                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
+                required
+              />
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+                Lớp / Khoa <span class="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                v-model="className"
+                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
+                required
+              />
+            </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -94,8 +160,7 @@ function register() {
               <input
                 type="text"
                 v-model="userName"
-                placeholder="username"
-                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
+                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
                 required
               />
             </div>
@@ -107,9 +172,7 @@ function register() {
               <input
                 type="tel"
                 v-model="phone"
-                placeholder="0912 345 678"
-                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
-                required
+                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
               />
             </div>
           </div>
@@ -121,8 +184,7 @@ function register() {
             <input
               type="email"
               v-model="email"
-              placeholder="name@example.com"
-              class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
+              class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
               required
             />
           </div>
@@ -134,8 +196,7 @@ function register() {
             <input
               type="password"
               v-model="password"
-              placeholder="••••••••"
-              class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
+              class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
               required
             />
           </div>

@@ -20,21 +20,111 @@ const chat = ref([]);
 const chatId = ref(0);
 const isLoading2 = ref(false);
 const question = ref('');
-const showGemini = ref(false);
-const showVeo = ref(false);
+
+// Sidebar active tab: 'feedback' | 'score' | 'gemini' | 'veo'
+const activeSideTab = ref('feedback');
+const showGemini = computed(() => activeSideTab.value === 'gemini');
+const showVeo = computed(() => activeSideTab.value === 'veo');
 
 const userCookie = useCookie('user');
 const user = computed(() => {
-  if (!userCookie.value) return { id: 1, userName: 'admin' };
+  if (!userCookie.value) return { id: 1, userName: 'admin', role: 'student' };
   if (typeof userCookie.value === 'string') {
     try {
       return JSON.parse(userCookie.value);
     } catch {
-      return { id: 1, userName: userCookie.value };
+      return { id: 1, userName: userCookie.value, role: 'student' };
     }
   }
   return userCookie.value;
 });
+
+const isJudgeOrAdmin = computed(() => {
+  const role = user.value?.role;
+  return role === 'judge' || role === 'admin' || user.value?.userName === 'admin';
+});
+
+// Scoring and Community Voting State
+const videoScores = ref({ avgScore: 0, count: 0, scores: [] });
+const voteCount = ref(0);
+const hasVoted = ref(false);
+const judgeScoreInput = ref(8.5);
+const judgeCommentInput = ref('');
+const isSavingScore = ref(false);
+
+function refreshScoresAndVotes() {
+  if (!video.value?.id) return;
+  const vidId = video.value.id;
+  videoScores.value = data.calculateVideoScores(vidId);
+  voteCount.value = data.countVideoVotes(vidId);
+  hasVoted.value = data.hasUserVoted(vidId, user.value?.userName);
+}
+
+async function submitJudgeScore() {
+  const numericScore = parseFloat(judgeScoreInput.value);
+  if (isNaN(numericScore) || numericScore < 0 || numericScore > 10) {
+    Swal.fire({ icon: 'warning', title: 'Điểm không hợp lệ', text: 'Vui lòng nhập điểm từ 0.0 đến 10.0' });
+    return;
+  }
+  isSavingScore.value = true;
+  try {
+    await data.submitScore({
+      videoId: video.value.id,
+      projectId: video.value.projectId,
+      judgeUserName: user.value?.userName || 'judge',
+      judgeFullName: user.value?.fullName || user.value?.userName || 'Giám khảo',
+      score: numericScore,
+      comment: judgeCommentInput.value.trim(),
+    });
+    refreshScoresAndVotes();
+    Swal.fire({
+      icon: 'success',
+      title: 'Đã lưu điểm!',
+      text: `Đã ghi nhận điểm ${numericScore}/10 từ Ban Giám khảo.`,
+      timer: 1500,
+      showConfirmButton: false,
+    });
+  } catch (e) {
+    Swal.fire({ icon: 'error', title: 'Lỗi', text: e?.message || 'Không thể lưu điểm' });
+  } finally {
+    isSavingScore.value = false;
+  }
+}
+
+async function handleToggleVote() {
+  if (!user.value || user.value.role === 'guest') {
+    Swal.fire({
+      icon: 'info',
+      title: 'Cần đăng nhập',
+      text: 'Vui lòng đăng nhập tài khoản để tham gia bình chọn!',
+      confirmButtonText: 'Đăng nhập',
+    }).then((res) => {
+      if (res.isConfirmed) useRouter().push('/login');
+    });
+    return;
+  }
+  try {
+    const isVoted = await data.toggleVote({
+      projectId: video.value?.projectId,
+      videoId: video.value?.id,
+      userName: user.value.userName,
+    });
+    hasVoted.value = isVoted;
+    voteCount.value = data.countVideoVotes(video.value?.id);
+    Swal.mixin({
+      toast: true,
+      position: 'top-end',
+      showConfirmButton: false,
+      timer: 1800,
+      timerProgressBar: true,
+    }).fire({
+      icon: isVoted ? 'success' : 'info',
+      title: isVoted ? '❤️ Đã bình chọn cho tác phẩm!' : 'Đã hủy bình chọn.',
+    });
+  } catch (e) {
+    Swal.fire({ icon: 'error', title: 'Lỗi', text: e?.message });
+  }
+}
 
 async function askGemini() {
 	if (isLoading2.value || !question.value) return;
@@ -217,6 +307,8 @@ async function fetchData() {
   isLoading.value = true;
   await store.fetchData();
   isLoading.value = false;
+
+  refreshScoresAndVotes();
 
   if (!currentVersion.value) return;
 
@@ -515,6 +607,36 @@ function uploadVideo() {
 						<IconPaperPlane class="size-4 fill-current" />
 						<span class="hidden sm:inline">Gửi</span>
 					</button>
+
+          <!-- Community Vote Button -->
+          <button
+            type="button"
+            @click="handleToggleVote"
+            :class="[
+              'px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 active:scale-95',
+              hasVoted
+                ? 'bg-rose-500 text-white shadow-xs'
+                : 'bg-rose-50 hover:bg-rose-100 text-rose-600'
+            ]"
+            :title="hasVoted ? 'Hủy bình chọn' : 'Bình chọn bài thi'"
+          >
+            <svg class="size-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+            <span>{{ voteCount }} vote</span>
+          </button>
+
+          <!-- Score Tab Trigger -->
+          <button
+            type="button"
+            @click="activeSideTab = 'score'"
+            class="px-3 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 transition-all flex items-center gap-1.5 cursor-pointer shrink-0"
+            title="Xem và chấm điểm bài thi"
+          >
+            <span>⚖️</span>
+            <span>{{ videoScores.count > 0 ? `${videoScores.avgScore}/10` : 'Chấm điểm' }}</span>
+          </button>
+
 					<label
             for="modal_shortcut"
             class="size-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer transition-colors shrink-0"
@@ -525,20 +647,20 @@ function uploadVideo() {
 				</form>
 			</div>
 
-			<!-- Right Sidebar: Feedback List / AI Assistant -->
+			<!-- Right Sidebar: Feedback List / Score & Evaluation / AI Assistant -->
 			<aside class="w-full lg:w-96 shrink-0 h-full flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <!-- Segmented Tab Header -->
+        <!-- Segmented Tab Header (4 Tabs) -->
         <div class="p-3 border-b border-slate-100 bg-slate-50/70 shrink-0">
-          <div class="grid grid-cols-3 gap-1 bg-slate-200/60 p-1 rounded-xl text-xs font-semibold">
+          <div class="grid grid-cols-4 gap-1 bg-slate-200/60 p-1 rounded-xl text-xs font-semibold">
             <button
               type="button"
               :class="[
-                'py-2 px-3 rounded-lg transition-all text-center flex items-center justify-center gap-1.5',
-                (!showGemini && !showVeo)
+                'py-2 px-1.5 rounded-lg transition-all text-center flex items-center justify-center gap-1',
+                activeSideTab === 'feedback'
                   ? 'bg-white text-blue-600 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               ]"
-              @click="showGemini = false; showVeo = false"
+              @click="activeSideTab = 'feedback'"
             >
               <span>Phản hồi</span>
               <span class="px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 text-[10px]" v-if="feedbacks">{{ feedbacks.length }}</span>
@@ -547,33 +669,47 @@ function uploadVideo() {
             <button
               type="button"
               :class="[
-                'py-2 px-3 rounded-lg transition-all text-center flex items-center justify-center gap-1.5',
-                (showGemini && !showVeo)
-                  ? 'bg-white text-blue-600 shadow-xs font-bold'
+                'py-2 px-1.5 rounded-lg transition-all text-center flex items-center justify-center gap-1',
+                activeSideTab === 'score'
+                  ? 'bg-white text-amber-600 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               ]"
-              @click="showGemini = true; showVeo = false"
+              @click="activeSideTab = 'score'"
             >
-              <span>Gemini AI</span>
+              <span>⚖️ Điểm</span>
+              <span class="px-1 py-0.2 rounded-full bg-amber-100 text-amber-700 text-[10px]" v-if="videoScores.count">{{ videoScores.avgScore }}</span>
             </button>
 
             <button
               type="button"
               :class="[
-                'py-2 px-3 rounded-lg transition-all text-center flex items-center justify-center gap-1.5',
-                (showVeo && !showGemini)
+                'py-2 px-1.5 rounded-lg transition-all text-center flex items-center justify-center gap-1',
+                activeSideTab === 'gemini'
                   ? 'bg-white text-blue-600 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               ]"
-              @click="showGemini = false; showVeo = true"
+              @click="activeSideTab = 'gemini'"
             >
-              <span>Veo Studio</span>
+              <span>Gemini</span>
+            </button>
+
+            <button
+              type="button"
+              :class="[
+                'py-2 px-1.5 rounded-lg transition-all text-center flex items-center justify-center gap-1',
+                activeSideTab === 'veo'
+                  ? 'bg-white text-blue-600 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              ]"
+              @click="activeSideTab = 'veo'"
+            >
+              <span>Veo</span>
             </button>
           </div>
         </div>
 
         <!-- Tab 1: Feedbacks List -->
-        <div class="flex-1 overflow-y-auto p-4 flex flex-col" v-if="!showGemini && !showVeo">
+        <div class="flex-1 overflow-y-auto p-4 flex flex-col" v-if="activeSideTab === 'feedback'">
           <div v-if="!feedbacks || feedbacks.length === 0" class="flex-1 flex flex-col items-center justify-center text-center p-6 text-slate-400">
             <div class="size-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400 mb-2">
               <IconCommentDots class="size-6 fill-current" />
@@ -629,7 +765,151 @@ function uploadVideo() {
           </div>
         </div>
 
-        <!-- Tab 2: Gemini Chat -->
+        <!-- Tab 2: Đánh giá & Chấm điểm Ban Giám khảo -->
+        <div class="flex-1 overflow-y-auto p-4 flex flex-col gap-4" v-if="activeSideTab === 'score'">
+          <!-- Video Author Info Card -->
+          <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col gap-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <span>🎓</span>
+                <span>{{ video?.authorGroup || video?.createdBy || 'Thí sinh' }}</span>
+              </span>
+              <span class="text-[11px] text-slate-400 font-medium">
+                {{ video?.studentId ? `MSSV: ${video.studentId}` : '' }}
+                {{ video?.className ? `• ${video.className}` : '' }}
+              </span>
+            </div>
+            <p v-if="video?.description" class="text-xs text-slate-600 italic">
+              "{{ video.description }}"
+            </p>
+          </div>
+
+          <!-- Average Score Summary Card -->
+          <div class="p-4 rounded-2xl bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200 flex items-center justify-between">
+            <div>
+              <div class="text-[11px] uppercase font-bold text-amber-700 tracking-wider">Điểm Chuyên Môn TB</div>
+              <div class="text-2xl font-black text-amber-700 mt-0.5">
+                {{ videoScores.count > 0 ? `${videoScores.avgScore} / 10.0` : 'Chưa có điểm' }}
+              </div>
+              <div class="text-xs text-amber-600 font-medium mt-0.5">
+                {{ videoScores.count }} Giám khảo đã chấm
+              </div>
+            </div>
+            <!-- Community Vote summary in card -->
+            <div class="text-right">
+              <div class="text-[11px] uppercase font-bold text-rose-600 tracking-wider">Bình chọn</div>
+              <button
+                type="button"
+                @click="handleToggleVote"
+                :class="[
+                  'mt-1 px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer',
+                  hasVoted ? 'bg-rose-500 text-white shadow-xs' : 'bg-white text-rose-600 border border-rose-200'
+                ]"
+              >
+                <svg class="size-3.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+                <span>{{ voteCount }} vote</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Judge Scoring Box (For Judges and Admin) -->
+          <div v-if="isJudgeOrAdmin" class="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-3">
+            <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h4 class="font-bold text-xs uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
+                <span>⚖️</span>
+                <span>Ghi điểm bài thi</span>
+              </h4>
+              <span class="text-xs font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                {{ judgeScoreInput }} / 10
+              </span>
+            </div>
+
+            <form @submit.prevent="submitJudgeScore" class="space-y-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">Điểm đánh giá (0.0 - 10.0)</label>
+                <div class="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="10"
+                    v-model.number="judgeScoreInput"
+                    class="w-20 px-3 py-2 rounded-xl border border-slate-300 text-slate-900 font-black text-center text-sm"
+                    required
+                  />
+                  <input
+                    type="range"
+                    min="0"
+                    max="10"
+                    step="0.1"
+                    v-model.number="judgeScoreInput"
+                    class="range range-xs range-warning flex-1"
+                  />
+                </div>
+                <!-- Quick suggestions -->
+                <div class="flex items-center gap-1 mt-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    v-for="val in [7.5, 8.0, 8.5, 9.0, 9.5, 10.0]"
+                    :key="val"
+                    @click="judgeScoreInput = val"
+                    :class="[
+                      'px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer',
+                      judgeScoreInput === val ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    ]"
+                  >
+                    {{ val.toFixed(1) }}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-bold text-slate-600 mb-1">Lời nhận xét & Góp ý</label>
+                <textarea
+                  v-model="judgeCommentInput"
+                  rows="3"
+                  class="w-full p-2.5 rounded-xl border border-slate-300 text-slate-900 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none resize-none"
+                ></textarea>
+              </div>
+
+              <button
+                type="submit"
+                :disabled="isSavingScore"
+                class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-600 hover:to-yellow-700 text-white font-bold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span v-if="isSavingScore" class="loading loading-spinner loading-xs"></span>
+                <span>{{ isSavingScore ? 'Đang lưu...' : 'Lưu điểm đánh giá' }}</span>
+              </button>
+            </form>
+          </div>
+
+          <!-- Existing Scores from all Judges -->
+          <div class="flex flex-col gap-2">
+            <h5 class="text-xs font-bold text-slate-700">Đánh giá từ các Giám khảo:</h5>
+            <div v-if="!videoScores.scores || videoScores.scores.length === 0" class="text-xs text-slate-400 italic p-3 text-center bg-slate-50 rounded-xl">
+              Chưa có giám khảo nào ghi điểm cho tác phẩm này.
+            </div>
+            <div
+              v-else
+              v-for="sc in videoScores.scores"
+              :key="sc.id"
+              class="p-3 rounded-xl border border-slate-200/80 bg-slate-50/50 flex flex-col gap-1 text-xs"
+            >
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-slate-800">⚖️ {{ sc.judgeFullName || sc.judgeUserName }}</span>
+                <span class="font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
+                  {{ sc.score }} / 10
+                </span>
+              </div>
+              <p v-if="sc.comment" class="text-slate-600 italic mt-0.5 pl-5">"{{ sc.comment }}"</p>
+              <span class="text-[10px] text-slate-400 text-right">{{ sc.createdAt || sc.updatedAt }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Gemini Chat -->
         <div class="flex-1 flex flex-col overflow-hidden" v-if="showGemini && !showVeo">
           <!-- Chat messages stream -->
           <div class="flex-1 overflow-y-auto p-4 space-y-3">
