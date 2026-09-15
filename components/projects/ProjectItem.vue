@@ -29,14 +29,14 @@ function onClickEdit() {
         <div class="size-12 rounded-2xl bg-blue-100/80 flex items-center justify-center text-blue-600 mb-2 transition-transform group-hover:scale-110 shadow-xs">
           <IconCirclePlay class="size-6 fill-current" />
         </div>
-        <span class="text-xs font-semibold text-slate-400">Dự án video</span>
+        <span class="text-xs font-semibold text-slate-400">Cuộc thi video</span>
       </div>
 
       <!-- Play Overlay Pill on Hover -->
       <div class="absolute inset-0 bg-slate-900/20 backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
         <span class="px-4 py-2 rounded-full bg-white/95 text-slate-800 text-xs font-bold shadow-lg flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0 transition-transform">
           <IconCirclePlay class="size-4 fill-blue-600" />
-          Mở dự án
+          Mở cuộc thi
         </span>
       </div>
     </NuxtLink>
@@ -70,7 +70,7 @@ function onClickEdit() {
           <li>
             <button @click="onClickDelete" class="flex items-center gap-2 py-2 px-3 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-medium">
               <IconTrash class="size-3.5 fill-current" />
-              <span>Xoá dự án</span>
+              <span>Xoá cuộc thi</span>
             </button>
           </li>
         </ul>

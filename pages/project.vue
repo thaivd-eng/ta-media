@@ -28,7 +28,7 @@ const showModalEdit = ref(false);
 onBeforeMount(async () => {
   await fetchData();
   useHead({ title: project.value.name });
-  useRoute().meta.title = 'Dự án ' + project.value.name;
+  useRoute().meta.title = 'Cuộc thi ' + project.value.name;
 });
 
 async function findThumbnail() {
@@ -178,19 +178,19 @@ function updateVideo() {
         <NuxtLink
           to="/projects"
           class="size-10 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 flex items-center justify-center transition-colors shrink-0"
-          title="Quay lại danh sách dự án"
+          title="Quay lại danh sách cuộc thi"
         >
           <IconAngleLeft class="size-5 fill-current" />
         </NuxtLink>
 
         <div>
           <div class="flex items-center gap-2 text-xs font-medium text-slate-400 mb-0.5">
-            <NuxtLink to="/projects" class="hover:text-blue-600 transition-colors">Dự án</NuxtLink>
+            <NuxtLink to="/projects" class="hover:text-blue-600 transition-colors">Cuộc thi</NuxtLink>
             <span>/</span>
             <span class="text-blue-600 font-semibold">{{ project.name || 'Chi tiết' }}</span>
           </div>
           <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-            {{ project.name || 'Đang tải dự án...' }}
+            {{ project.name || 'Đang tải cuộc thi...' }}
           </h1>
           <p v-if="project.description" class="text-xs sm:text-sm text-slate-500 mt-1">
             {{ project.description }}
@@ -232,7 +232,7 @@ function updateVideo() {
       <div class="size-16 rounded-3xl bg-blue-50 flex items-center justify-center text-blue-600 mb-4 ring-8 ring-blue-50/50">
         <IconCirclePlay class="size-8 fill-current" />
       </div>
-      <h3 class="text-lg font-bold text-slate-800 mb-1">Chưa có video nào trong dự án này</h3>
+      <h3 class="text-lg font-bold text-slate-800 mb-1">Chưa có video nào trong cuộc thi này</h3>
       <p class="text-xs sm:text-sm text-slate-500 max-w-sm mb-6">
         Hãy bắt đầu thêm video đầu tiên để tải lên các phiên bản và thu thập phản hồi từ người xem.
       </p>
@@ -394,7 +394,7 @@ function updateVideo() {
           <div class="size-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
             <IconFile class="size-8 fill-current" />
           </div>
-          <p class="font-medium text-slate-700">Dự án này chưa được gắn liên kết Sheet</p>
+          <p class="font-medium text-slate-700">Cuộc thi này chưa được gắn liên kết Sheet</p>
           <p class="text-xs text-slate-400 max-w-sm">Bạn có thể bổ sung đường dẫn Google Sheet trong cơ sở dữ liệu để xem trực tiếp tại đây.</p>
         </div>
 

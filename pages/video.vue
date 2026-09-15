@@ -724,7 +724,7 @@ function uploadVideo() {
     <NuxtLink
       to="/projects"
       class="fixed bottom-6 left-6 size-11 rounded-2xl bg-white text-slate-700 hover:text-blue-600 shadow-xl shadow-slate-900/10 border border-slate-200/80 flex items-center justify-center transition-transform hover:scale-105 active:scale-95 z-20"
-      title="Về danh sách dự án"
+      title="Về danh sách cuộc thi"
     >
       <IconHouse class="size-4 fill-current" />
     </NuxtLink>

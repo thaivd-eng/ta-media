@@ -97,7 +97,7 @@ async function fetchData() {
     <div class="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div>
         <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Thống kê hoạt động</h1>
-        <p class="text-xs sm:text-sm text-slate-500 mt-1">Tổng quan số lượng dự án, video và phản hồi trên toàn hệ thống</p>
+        <p class="text-xs sm:text-sm text-slate-500 mt-1">Tổng quan số lượng cuộc thi, video và phản hồi trên toàn hệ thống</p>
       </div>
 
       <div class="px-3.5 py-1.5 rounded-xl bg-blue-50 text-blue-700 text-xs font-bold self-start sm:self-center">
@@ -110,14 +110,14 @@ async function fetchData() {
       <!-- Card 1 -->
       <div class="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs hover:shadow-md hover:border-blue-200 transition-all flex flex-col justify-between">
         <div class="flex items-center justify-between mb-4">
-          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Dự án</span>
+          <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Cuộc thi</span>
           <div class="size-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
             <IconCircleCheck class="size-5 fill-current" />
           </div>
         </div>
         <div>
           <span class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">{{ projects }}</span>
-          <p class="text-xs text-slate-500 mt-1 font-medium">Dự án đang hoạt động</p>
+          <p class="text-xs text-slate-500 mt-1 font-medium">Cuộc thi đang hoạt động</p>
         </div>
       </div>
 

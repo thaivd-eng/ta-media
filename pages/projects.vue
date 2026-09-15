@@ -2,10 +2,10 @@
 import * as data from '~/utils/data-service';
 import swal from 'sweetalert2';
 
-useHead({ title: 'Dự án - MediaAI' });
+useHead({ title: 'Cuộc thi - MediaAI' });
 
 definePageMeta({
-  title: 'Dự án',
+  title: 'Cuộc thi',
   layout: 'dashboard',
 });
 
@@ -84,7 +84,7 @@ async function createProject() {
     swal.fire({
       icon: 'success',
       title: 'Thành công',
-      text: 'Dự án mới đã được khởi tạo!',
+      text: 'Cuộc thi mới đã được khởi tạo!',
       timer: 1500,
       showConfirmButton: false,
     });
@@ -92,7 +92,7 @@ async function createProject() {
     swal.fire({
       icon: 'error',
       title: 'Lỗi',
-      text: 'Không thể tạo dự án. Vui lòng thử lại.',
+      text: 'Không thể tạo cuộc thi. Vui lòng thử lại.',
     });
   } finally {
     isLoading2.value = false;
@@ -101,11 +101,11 @@ async function createProject() {
 
 function deleteProject(project) {
   swal.fire({
-    title: 'Xác nhận xóa dự án?',
-    text: `Bạn có chắc chắn muốn xóa dự án "${project.name}"? Hành động này không thể hoàn tác.`,
+    title: 'Xác nhận xóa cuộc thi?',
+    text: `Bạn có chắc chắn muốn xóa cuộc thi "${project.name}"? Hành động này không thể hoàn tác.`,
     icon: 'warning',
     showCancelButton: true,
-    confirmButtonText: 'Xóa dự án',
+    confirmButtonText: 'Xóa cuộc thi',
     cancelButtonText: 'Hủy',
     confirmButtonColor: '#ef4444',
   }).then((result) => {
@@ -115,7 +115,7 @@ function deleteProject(project) {
       swal.fire({
         icon: 'success',
         title: 'Đã xóa!',
-        text: 'Dự án đã được chuyển vào thùng rác.',
+        text: 'Cuộc thi đã được chuyển vào thùng rác.',
         timer: 1200,
         showConfirmButton: false,
       });
@@ -149,7 +149,7 @@ function updateProject() {
     <!-- Header bar with Title, Search & Actions -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs">
       <div>
-        <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Danh sách dự án</h1>
+        <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">Danh sách cuộc thi</h1>
         <p class="text-xs sm:text-sm text-slate-500 mt-1">Quản lý và theo dõi phản hồi cho các video truyền thông</p>
       </div>
 
@@ -159,7 +159,7 @@ function updateProject() {
           <input
             type="text"
             v-model="searchQuery"
-            placeholder="Tìm kiếm dự án..."
+            placeholder="Tìm kiếm cuộc thi..."
             class="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 text-slate-800 text-xs font-medium placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
           />
           <div class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
@@ -173,7 +173,7 @@ function updateProject() {
           class="cursor-pointer px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95 whitespace-nowrap"
         >
           <IconPlus class="size-4 fill-current" />
-          <span>Tạo dự án mới</span>
+          <span>Tạo cuộc thi mới</span>
         </label>
       </div>
     </div>
@@ -190,17 +190,17 @@ function updateProject() {
         <IconCirclePlay class="size-8 fill-current" />
       </div>
       <h3 class="text-lg font-bold text-slate-800 mb-1">
-        {{ searchQuery ? 'Không tìm thấy dự án phù hợp' : 'Chưa có dự án nào' }}
+        {{ searchQuery ? 'Không tìm thấy cuộc thi phù hợp' : 'Chưa có cuộc thi nào' }}
       </h3>
       <p class="text-xs sm:text-sm text-slate-500 max-w-sm mb-6">
-        {{ searchQuery ? 'Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc' : 'Bắt đầu khởi tạo dự án đầu tiên của bạn để quản lý các phiên bản video và nhận phản hồi.' }}
+        {{ searchQuery ? 'Thử tìm kiếm với từ khóa khác hoặc xóa bộ lọc' : 'Bắt đầu khởi tạo cuộc thi đầu tiên của bạn để quản lý các video và nhận phản hồi.' }}
       </p>
       <label
         for="modal_create"
         class="cursor-pointer px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-md shadow-blue-600/20 transition-all"
       >
         <IconPlus class="size-4 fill-current" />
-        <span>Thêm dự án ngay</span>
+        <span>Thêm cuộc thi ngay</span>
       </label>
     </div>
 
@@ -232,20 +232,20 @@ function updateProject() {
             <IconPlus class="size-5 fill-current" />
           </div>
           <div>
-            <h3 class="text-lg font-bold text-slate-900">Thêm dự án mới</h3>
-            <p class="text-xs text-slate-500">Tạo không gian làm việc mới cho video của bạn</p>
+            <h3 class="text-lg font-bold text-slate-900">Thêm cuộc thi mới</h3>
+            <p class="text-xs text-slate-500">Tạo không gian cuộc thi mới cho video của bạn</p>
           </div>
         </div>
 
         <form class="space-y-4" @submit.prevent="createProject()">
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Tên dự án <span class="text-rose-500">*</span>
+              Tên cuộc thi <span class="text-rose-500">*</span>
             </label>
             <input
               type="text"
               v-model="newProject.name"
-              placeholder="VD: TVC Quảng cáo Mùa hè 2026"
+              placeholder="VD: Cuộc thi sáng tạo Video 2026"
               class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
               required
             />
@@ -253,12 +253,12 @@ function updateProject() {
 
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Miêu tả dự án
+              Miêu tả cuộc thi
             </label>
             <textarea
               v-model="newProject.description"
               rows="3"
-              placeholder="Nhập mô tả tóm tắt nội dung dự án..."
+              placeholder="Nhập mô tả tóm tắt nội dung cuộc thi..."
               class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
             ></textarea>
           </div>
@@ -291,15 +291,15 @@ function updateProject() {
             <IconPenToSquare class="size-5 fill-current" />
           </div>
           <div>
-            <h3 class="text-lg font-bold text-slate-900">Chỉnh sửa thông tin dự án</h3>
-            <p class="text-xs text-slate-500">Cập nhật tên hoặc mô tả của dự án</p>
+            <h3 class="text-lg font-bold text-slate-900">Chỉnh sửa thông tin cuộc thi</h3>
+            <p class="text-xs text-slate-500">Cập nhật tên hoặc mô tả của cuộc thi</p>
           </div>
         </div>
 
         <form class="space-y-4" @submit.prevent="updateProject()">
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Tên dự án <span class="text-rose-500">*</span>
+              Tên cuộc thi <span class="text-rose-500">*</span>
             </label>
             <input
               type="text"
@@ -311,7 +311,7 @@ function updateProject() {
 
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Miêu tả dự án
+              Miêu tả cuộc thi
             </label>
             <textarea
               v-model="selectedProject.description"

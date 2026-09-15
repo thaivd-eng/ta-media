@@ -42,7 +42,7 @@ const isActive = (path) => {
               <div :class="['size-5 flex items-center justify-center transition-colors', isActive('/projects') ? 'text-blue-600' : 'text-slate-400 group-hover:text-blue-600']">
                 <IconCirclePlay class="size-5 fill-current" />
               </div>
-              <span>Dự án</span>
+              <span>Cuộc thi</span>
               <span v-if="isActive('/projects')" class="ml-auto size-1.5 rounded-full bg-blue-600"></span>
             </NuxtLink>
 
