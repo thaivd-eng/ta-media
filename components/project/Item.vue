@@ -1,9 +1,17 @@
 <script setup>
+import { formatThumbnailUrl } from '~/utils/data-service';
+
 const props = defineProps({
   video: Object,
 });
 
 const emits = defineEmits(['clickEdit', 'clickDelete']);
+
+const imgError = ref(false);
+const validThumbnailUrl = computed(() => {
+  if (imgError.value || !props.video?.thumbnailUrl) return '';
+  return formatThumbnailUrl(props.video.thumbnailUrl);
+});
 
 function onClickDelete() {
   emits('clickDelete', props.video);
@@ -19,9 +27,11 @@ function onClickEdit() {
     <!-- Thumbnail Container -->
     <NuxtLink :to="'/video?id=' + props.video.id" class="relative w-full aspect-video overflow-hidden bg-slate-100 block">
       <img
-        v-if="props.video.thumbnailUrl"
-        :src="props.video.thumbnailUrl"
+        v-if="validThumbnailUrl"
+        :src="validThumbnailUrl"
         :alt="props.video.name"
+        referrerpolicy="no-referrer"
+        @error="imgError = true"
         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
       />
       <!-- Fallback Placeholder -->

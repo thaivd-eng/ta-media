@@ -35,9 +35,10 @@ const chartData = computed(() => {
   // filter videos by month in current year from videos
   let currentYear = new Date().getFullYear();
   videoData.value.forEach((v) => {
-    // convert date string to Date object
-    // format of createdAt: 'dd/mm/yyyy hh:mm:ss'
-    let [y,m,d] = v.createdAt.split(' ')[0].split('/').reverse();
+    if (!v.createdAt || typeof v.createdAt !== 'string') return;
+    let parts = v.createdAt.split(' ')[0].split('/');
+    if (parts.length < 3) return;
+    let [y,m,d] = parts.reverse();
 	let date = new Date(y, m - 1, d);
 
     if (date.getFullYear() == currentYear) {

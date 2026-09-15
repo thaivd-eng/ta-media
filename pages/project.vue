@@ -112,16 +112,26 @@ async function createVideo() {
 
   if (!newVideo.value.name) return;
 
+  let userName = 'admin';
+  if (user.value) {
+    if (typeof user.value === 'string') {
+      try { userName = JSON.parse(user.value).userName || 'admin'; } catch {}
+    } else {
+      userName = user.value.userName || 'admin';
+    }
+  }
+
   let video = {
     id: Date.now(),
     name: newVideo.value.name,
     projectId: project.value.id,
-    createdBy: user.value.userName,
+    createdBy: userName,
     thumbnailUrl: '',
-    folderId: project.value.folderId,
+    folderId: project.value?.folderId,
     versions: [],
     done: 0,
     feedbacks: 0,
+    createdAt: new Date().toLocaleString('en-GB'),
   };
 
   let result = await data.createVideo(video);

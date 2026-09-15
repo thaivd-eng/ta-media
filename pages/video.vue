@@ -20,10 +20,21 @@ const chat = ref([]);
 const chatId = ref(0);
 const isLoading2 = ref(false);
 const question = ref('');
-const showGemini = ref(true);
-const showVeo = ref(true);
+const showGemini = ref(false);
+const showVeo = ref(false);
 
-const user = useCookie('user').value;
+const userCookie = useCookie('user');
+const user = computed(() => {
+  if (!userCookie.value) return { id: 1, userName: 'admin' };
+  if (typeof userCookie.value === 'string') {
+    try {
+      return JSON.parse(userCookie.value);
+    } catch {
+      return { id: 1, userName: userCookie.value };
+    }
+  }
+  return userCookie.value;
+});
 
 async function askGemini() {
 	if (isLoading2.value || !question.value) return;
@@ -39,7 +50,7 @@ async function askGemini() {
 	let tempBody = {
 		question: question.value,
 		fileId: currentVersion.value.id,
-		userId: user.id
+		userId: user.value?.id || user.value?.userName || 'admin'
 	};
 
 	try {
@@ -214,7 +225,7 @@ async function fetchData() {
 	// get conversation
 	chat.value = await findConversation({
 		fileId: currentVersion.value.id,
-		userId: user.id,
+		userId: user.value?.id || user.value?.userName || 'admin',
 	});
 }
 
@@ -358,7 +369,8 @@ function uploadVideo() {
     cancelButtonText: 'Không',
   }).then((result) => {
     if (!result.isConfirmed) return;
-    let url = 'https://drive.google.com/drive/folders/' + video.value.folderId;
+    let folderId = video.value?.folderId;
+    let url = 'https://drive.google.com/drive/folders/' + folderId;
     window.open(url, '_blank');
 
     Swal.fire({

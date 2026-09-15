@@ -72,7 +72,15 @@ export const useVideoStore = defineStore("video", {
     },
 
     async createFeedback({ id, time, content }) { 
-      let user = useCookie("user").value;
+      let rawUser = useCookie("user").value;
+      let userName = 'admin';
+      if (rawUser) {
+        if (typeof rawUser === 'string') {
+          try { userName = JSON.parse(rawUser).userName || 'admin'; } catch {}
+        } else {
+          userName = rawUser.userName || 'admin';
+        }
+      }
       let versionId = this.currentVersion.id;
       let timeFormated = new Date(0,0,0,0,0,time).toString().slice(16,24);
 
@@ -82,7 +90,7 @@ export const useVideoStore = defineStore("video", {
         content,
         versionId,
         timeFormated,
-        createdBy: user.userName,
+        createdBy: userName,
         createdAt: new Date().toLocaleString("en-GB"),
       });
 
@@ -91,7 +99,7 @@ export const useVideoStore = defineStore("video", {
         time,
         content,
         versionId,
-        createdBy: user.userName,
+        createdBy: userName,
       });
     }
   },
