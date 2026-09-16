@@ -10,13 +10,9 @@ definePageMeta({
     
     <!-- Header: Giao diện sáng, tinh tế, đồng bộ không dùng khung xanh to -->
     <div class="bg-white rounded-2xl p-6 sm:p-8 border border-slate-200/80 shadow-xs flex flex-col gap-3">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-bold w-fit">
-        <span class="size-2 rounded-full bg-blue-600"></span>
-        <span>Dự án LH MediaAI</span>
-      </div>
 
       <h1 class="text-xl sm:text-3xl font-black text-slate-900 tracking-tight leading-snug">
-        LH MediaAI - Nền tảng tổ chức cuộc thi sáng tạo số tích hợp AI hỗ trợ đánh giá kỹ thuật video
+        MediaAI - Nền tảng tổ chức cuộc thi sáng tạo số tích hợp AI hỗ trợ đánh giá kỹ thuật video
       </h1>
 
       <p class="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-3xl">
