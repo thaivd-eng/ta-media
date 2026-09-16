@@ -406,6 +406,30 @@ async function submitEntry() {
   // Save video file into IndexedDB for persistent local playback
   await saveVideoFile(videoId, videoFile.value);
 
+  // Upload video to Google Drive
+  let driveUploaded = null;
+  if (videoFile.value) {
+    try {
+      const submitUserName = (user.userName || user.fullName || 'student').trim();
+      driveUploaded = await data.uploadVideoToDrive({
+        file: videoFile.value,
+        folderId: project.value?.folderId || '',
+        fileName: formattedDriveFileName,
+        videoId: videoId,
+        projectId: project.value?.id || '',
+        projectName: projectName,
+        videoName: submission.value.name.trim(),
+        createdBy: uploaderName,
+        userName: submitUserName,
+      });
+    } catch (e) {
+      console.warn('Google Drive auto-upload warning:', e);
+    }
+  }
+
+  const finalVideoUrl = driveUploaded?.directUrl || videoPreviewUrl.value || '';
+  const finalDriveFileId = driveUploaded?.fileId || '';
+
   const newEntry = {
     id: videoId,
     name: submission.value.name.trim(),
@@ -419,17 +443,20 @@ async function submitEntry() {
     createdBy: user.userName || 'student',
     uploaderName: uploaderName,
     folderId: project.value?.folderId || '',
+    driveFileId: finalDriveFileId,
     videoFileName: formattedDriveFileName,
     originalFileName: videoFile.value.name,
     videoFileSize: videoFile.value.size,
-    videoUrl: videoPreviewUrl.value || '',
+    videoUrl: finalVideoUrl,
+    driveUrl: driveUploaded?.driveUrl || '',
     driveFileName: formattedDriveFileName,
     versions: [
       {
         id: Date.now() + 1,
         name: 'v1',
         fileName: formattedDriveFileName,
-        videoUrl: videoPreviewUrl.value || '',
+        fileId: finalDriveFileId,
+        videoUrl: finalVideoUrl,
         fileSize: videoFile.value.size,
         createdAt: new Date().toLocaleString('en-GB'),
       }

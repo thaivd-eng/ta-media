@@ -2,7 +2,7 @@ import axios from "axios";
 import fetchSheet from "./fetch-sheet.js";
 
 const SHEET_ID = "1ZFnu90ubOUW4YriwELq_YDP83vQjxoI4c1etnKx68pQ";
-const BASE_URL = "https://script.google.com/macros/s/AKfycbx4eOIlo1krUpcx_cDpsuIcVS8FgEyMb9qQl2ZxqEojlhcidAEMvMHTDV5_gSK39Xy9-A/exec";
+const BASE_URL = "https://script.google.com/macros/s/AKfycbxNJp9_c7PP4CcZP5F2X57cePBLM6YvskDUC9Q7URfdpKcdc2rO1WKfXW_73oBtimL9Ug/exec";
 
 export function getLocalUsers() {
   if (!process.client) return [];
@@ -24,7 +24,7 @@ export function saveLocalUser(user) {
       users.push(user);
     }
     localStorage.setItem('mediaai_local_users', JSON.stringify(users));
-  } catch (e) {}
+  } catch (e) { }
 }
 
 export async function signIn(userName, password) {
@@ -222,7 +222,7 @@ export function getUploadUrl(videoId) {
   let userName = "admin";
   if (user) {
     if (typeof user === "string") {
-      try { userName = JSON.parse(user).userName || "admin"; } catch {}
+      try { userName = JSON.parse(user).userName || "admin"; } catch { }
     } else {
       userName = user.userName || "admin";
     }
@@ -253,12 +253,73 @@ export async function createProject(data) {
 }
 
 export async function createVideo(data) {
-  data = encodeData(data);
-  let token = useCookie("token").value;
-  let url = BASE_URL + `?action=create-video&data=${data}&token=${token}`;
+  let token = await getValidToken();
+  let payload = { ...data };
+  if (payload.thumbnailUrl && payload.thumbnailUrl.startsWith("data:")) {
+    delete payload.thumbnailUrl;
+  }
+  delete payload.versions;
+  delete payload.scores;
+  delete payload.feedbacks;
+
+  let encoded = encodeData(payload);
+  let url = BASE_URL + `?action=create-video&data=${encoded}&token=${token}`;
   let res = await axios.get(url);
 
   return res.data;
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = (error) => reject(error);
+  });
+}
+
+export async function uploadVideoToDrive({ file, folderId, fileName, videoId, projectId, createdBy, userName, videoName, projectName }) {
+  if (!process.client || !file) return null;
+  try {
+    const base64Data = await fileToBase64(file);
+    const payload = {
+      action: 'uploadVideo',
+      folderId: folderId || '',
+      fileName: fileName || file.name,
+      mimeType: file.type || 'video/mp4',
+      base64: base64Data,
+      videoId: videoId || '',
+      projectId: projectId || '',
+      projectName: projectName || '',
+      videoName: videoName || fileName || file.name,
+      createdBy: createdBy || '',
+      userName: userName || createdBy || '',
+    };
+
+    const res = await fetch(BASE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const text = await res.text();
+    let result = null;
+    try {
+      result = JSON.parse(text);
+    } catch (e) {
+      return null;
+    }
+
+    if (result && result.status === 'success' && result.fileId) {
+      return result;
+    }
+    return null;
+  } catch (err) {
+    console.warn('uploadVideoToDrive error:', err?.message);
+    return null;
+  }
 }
 
 export async function checkUpload(video) {
@@ -297,7 +358,7 @@ export async function removeFeedback(data) {
   return res.data;
 }
 
-export async function toggleDone (data) {
+export async function toggleDone(data) {
   data = encodeData(data);
   let token = useCookie("token").value;
   let url = BASE_URL + `?action=toggle-done&data=${data}&token=${token}`;
@@ -353,7 +414,7 @@ export function saveLocalVideo(video) {
       list.unshift(video);
     }
     localStorage.setItem(VIDEOS_KEY, JSON.stringify(list));
-  } catch (e) {}
+  } catch (e) { }
 }
 
 export function removeLocalVideo(videoId) {
@@ -362,7 +423,7 @@ export function removeLocalVideo(videoId) {
     let list = JSON.parse(localStorage.getItem(VIDEOS_KEY) || '[]');
     list = list.filter(v => String(v.id) !== String(videoId));
     localStorage.setItem(VIDEOS_KEY, JSON.stringify(list));
-  } catch (e) {}
+  } catch (e) { }
 }
 
 export async function resetPassword(userName) {
@@ -436,7 +497,7 @@ export async function submitScore({ videoId, projectId, judgeUserName, judgeFull
         list.push(newScore);
       }
       localStorage.setItem(SCORES_KEY, JSON.stringify(list));
-    } catch (e) {}
+    } catch (e) { }
   }
 
   try {
@@ -505,12 +566,12 @@ export async function toggleVote({ projectId, videoId, userName }) {
         voted = true;
       }
       localStorage.setItem(VOTES_KEY, JSON.stringify(list));
-    } catch (e) {}
+    } catch (e) { }
   }
 
   try {
     await create('votes', { projectId, videoId, userName });
-  } catch (e) {}
+  } catch (e) { }
 
   return voted;
 }
