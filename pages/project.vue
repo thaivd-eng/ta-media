@@ -37,6 +37,23 @@ const videos = ref([]);
 const activeTab = ref('videos');
 // Video sub-filter: 'all' | 'my'
 const videoFilter = ref('all');
+// Video display mode: 'grid' | 'list'
+const viewMode = ref('grid');
+
+onMounted(() => {
+  if (process.client) {
+    const savedMode = localStorage.getItem('ta_project_view_mode');
+    if (savedMode === 'grid' || savedMode === 'list') {
+      viewMode.value = savedMode;
+    }
+  }
+});
+
+watch(viewMode, (newVal) => {
+  if (process.client) {
+    localStorage.setItem('ta_project_view_mode', newVal);
+  }
+});
 
 // Submission modal state
 const showModalSubmit = ref(false);
@@ -791,28 +808,63 @@ function updateVideo() {
         </button>
       </div>
 
-      <!-- Quick Sub-filter (Tất cả / Bài của tôi) when in videos tab -->
-      <div v-if="activeTab === 'videos'" class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl shrink-0">
-        <button
-          type="button"
-          @click="videoFilter = 'all'"
-          :class="[
-            'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
-            videoFilter === 'all' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-          ]"
-        >
-          Tất cả ({{ videos.length }})
-        </button>
-        <button
-          type="button"
-          @click="videoFilter = 'my'"
-          :class="[
-            'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
-            videoFilter === 'my' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
-          ]"
-        >
-          Bài của tôi
-        </button>
+      <!-- View Switcher & Sub-filter (when in videos tab) -->
+      <div v-if="activeTab === 'videos'" class="flex items-center gap-2 shrink-0">
+        <!-- Nút chuyển đổi Dạng lưới / Dạng danh sách (Đặt trước filter Tất cả / Bài của tôi) -->
+        <div class="flex items-center gap-0.5 sm:gap-1 bg-slate-100 p-1 rounded-xl">
+          <button
+            type="button"
+            @click="viewMode = 'grid'"
+            :class="[
+              'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5',
+              viewMode === 'grid' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+            ]"
+            title="Hiển thị dạng lưới"
+          >
+            <svg class="size-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M3 3h7v7H3V3zm11 0h7v7h-7V3zm-11 11h7v7H3v-7zm11 0h7v7h-7v-7z"/>
+            </svg>
+            <span class="hidden sm:inline">Lưới</span>
+          </button>
+          <button
+            type="button"
+            @click="viewMode = 'list'"
+            :class="[
+              'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5',
+              viewMode === 'list' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+            ]"
+            title="Hiển thị dạng danh sách"
+          >
+            <svg class="size-3.5 fill-current" viewBox="0 0 24 24">
+              <path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/>
+            </svg>
+            <span class="hidden sm:inline">Danh sách</span>
+          </button>
+        </div>
+
+        <!-- Quick Sub-filter (Tất cả / Bài của tôi) -->
+        <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+          <button
+            type="button"
+            @click="videoFilter = 'all'"
+            :class="[
+              'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
+              videoFilter === 'all' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+            ]"
+          >
+            Tất cả ({{ videos.length }})
+          </button>
+          <button
+            type="button"
+            @click="videoFilter = 'my'"
+            :class="[
+              'px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer',
+              videoFilter === 'my' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+            ]"
+          >
+            Bài của tôi
+          </button>
+        </div>
       </div>
     </div>
 
@@ -847,19 +899,39 @@ function updateVideo() {
         </button>
       </div>
 
-      <!-- Videos Grid -->
-      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <project-item
-          v-for="vid in filteredVideos"
-          :key="vid.id"
-          :video="vid"
-          :can-score="canScore"
-          :can-manage="canManage || vid.createdBy === currentUser?.userName"
-          @click-delete="deleteVideo"
-          @click-edit="showEditVideo"
-          @click-score="openScoreModal"
-          @click-vote="handleVote"
-        />
+      <!-- Videos Display: Grid or List -->
+      <div v-else>
+        <!-- Dạng lưới (Grid) -->
+        <div v-if="viewMode === 'grid'" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <project-item
+            v-for="vid in filteredVideos"
+            :key="vid.id"
+            layout="grid"
+            :video="vid"
+            :can-score="canScore"
+            :can-manage="canManage || vid.createdBy === currentUser?.userName"
+            @click-delete="deleteVideo"
+            @click-edit="showEditVideo"
+            @click-score="openScoreModal"
+            @click-vote="handleVote"
+          />
+        </div>
+
+        <!-- Dạng danh sách (List) -->
+        <div v-else-if="viewMode === 'list'" class="flex flex-col gap-3">
+          <project-item
+            v-for="vid in filteredVideos"
+            :key="vid.id"
+            layout="list"
+            :video="vid"
+            :can-score="canScore"
+            :can-manage="canManage || vid.createdBy === currentUser?.userName"
+            @click-delete="deleteVideo"
+            @click-edit="showEditVideo"
+            @click-score="openScoreModal"
+            @click-vote="handleVote"
+          />
+        </div>
       </div>
     </div>
 
