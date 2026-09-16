@@ -465,11 +465,6 @@ async function submitEntry() {
       <div class="text-left text-sm space-y-2 mt-2">
         <p>Tác phẩm: <strong>${newEntry.name}</strong></p>
         <p>Cuộc thi: <strong>${projectName}</strong></p>
-        <p>Tệp video: <strong>${formattedDriveFileName}</strong> (${formatBytes(newEntry.videoFileSize)})</p>
-        <div class="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-100 text-blue-800 text-xs flex items-start gap-2">
-          <span>📁</span>
-          <span>Video đã được tự động lưu vào thư mục dự án trên Google Drive của bạn.</span>
-        </div>
       </div>
     `,
     confirmButtonText: 'Tuyệt vời',

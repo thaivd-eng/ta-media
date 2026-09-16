@@ -10,8 +10,6 @@ const phone = ref('');
 const email = ref('');
 const fullName = ref('');
 const role = ref('student');
-const studentId = ref('');
-const className = ref('');
 const isLoading = ref(false);
 const router = useRouter();
 
@@ -27,8 +25,8 @@ function register() {
     avatarUrl: '',
     fullName: fullName.value,
     role: role.value,
-    studentId: role.value === 'student' ? studentId.value : '',
-    className: role.value === 'student' ? className.value : '',
+    studentId: '',
+    className: '',
     createdAt: new Date(),
     isDisabled: 0
   };
@@ -126,31 +124,6 @@ function register() {
             />
           </div>
 
-          <!-- Student specific fields -->
-          <div v-if="role === 'student'" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Mã sinh viên (MSSV) <span class="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                v-model="studentId"
-                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
-                required
-              />
-            </div>
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Lớp / Khoa <span class="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                v-model="className"
-                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all text-sm font-medium"
-                required
-              />
-            </div>
-          </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
