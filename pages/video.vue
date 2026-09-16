@@ -4,7 +4,7 @@ import videojs from 'video.js';
 import 'video.js/dist/video-js.min.css';
 import Swal from 'sweetalert2';
 
-import { ask, findConversation, askVeo } from '~/utils/gemini';
+import { ask, findConversation } from '~/utils/gemini';
 import { marked } from 'marked';
 
 var player = null;
@@ -21,10 +21,9 @@ const chatId = ref(0);
 const isLoading2 = ref(false);
 const question = ref('');
 
-// Sidebar active tab: 'feedback' | 'score' | 'gemini' | 'veo'
+// Sidebar active tab: 'feedback' | 'score' | 'gemini'
 const activeSideTab = ref('feedback');
 const showGemini = computed(() => activeSideTab.value === 'gemini');
-const showVeo = computed(() => activeSideTab.value === 'veo');
 
 const userCookie = useCookie('user');
 const user = computed(() => {
@@ -126,33 +125,118 @@ async function handleToggleVote() {
   }
 }
 
+const quickPrompts = [
+  { icon: '🎬', label: '5s mở đầu', prompt: 'Hãy nhận xét và góp ý kỹ thuật cho 5 đến 10 giây mở đầu của video này để thu hút người xem hơn.' },
+  { icon: '🔊', label: 'Âm thanh & Thoại', prompt: 'Hãy đánh giá phần âm lượng nhạc nền, tiếng động và độ rõ ràng của giọng đọc/lời thoại trong video.' },
+  { icon: '💡', label: 'Ánh sáng & Góc quay', prompt: 'Hãy tư vấn về ánh sáng, góc máy và bố cục khung hình giúp video trông chuyên nghiệp hơn.' },
+  { icon: '⏱️', label: 'Nhịp điệu dựng', prompt: 'Nhịp điệu cắt dựng của video có bị nhanh hay chậm quá không? Gợi ý cách tối ưu nhịp dựng.' },
+  { icon: '⚖️', label: 'Gợi ý cho Giám khảo', prompt: 'Hãy tóm tắt ngắn gọn các ưu điểm kỹ thuật nổi bật và điểm cần cải thiện của video này để Ban Giám khảo tham khảo.' },
+  { icon: '🎨', label: 'Gợi ý cảnh B-roll', prompt: 'Gợi ý cho tôi 2 đến 3 phân cảnh B-roll sáng tạo để chèn thêm vào video này giúp nội dung sinh động hơn.' },
+];
+
+const chatContainerRef = ref(null);
+
+function scrollToBottom() {
+  nextTick(() => {
+    if (chatContainerRef.value) {
+      chatContainerRef.value.scrollTop = chatContainerRef.value.scrollHeight;
+    }
+  });
+}
+
+function selectQuickPrompt(promptText) {
+  if (isLoading2.value) return;
+  question.value = promptText;
+  askGemini();
+}
+
+function renderMarkdown(text) {
+  if (!text) return '';
+  try {
+    return marked.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+function captureCurrentVideoFrame() {
+  try {
+    const videoEl = document.querySelector('#video-player_html5_api') ||
+                    document.querySelector('video.vjs-tech') ||
+                    document.querySelector('video');
+    if (videoEl && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+      const canvas = document.createElement('canvas');
+      const maxW = 720;
+      const scale = Math.min(1, maxW / videoEl.videoWidth);
+      canvas.width = Math.round(videoEl.videoWidth * scale);
+      canvas.height = Math.round(videoEl.videoHeight * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      if (dataUrl && dataUrl.startsWith('data:image/jpeg;base64,')) {
+        return dataUrl.split(',')[1];
+      }
+    }
+  } catch (err) {
+    console.warn('Canvas frame capture notice:', err?.message);
+  }
+
+  // Fallback: check thumbnail from video or currentVersion
+  try {
+    const thumb = store.currentVersion?.thumbnailUrl || store.video?.thumbnailUrl;
+    if (thumb && thumb.startsWith('data:image')) {
+      return thumb.split(',')[1];
+    }
+  } catch (e) {}
+
+  return null;
+}
+
 async function askGemini() {
 	if (isLoading2.value || !question.value) return;
 
+  const currentQuestion = question.value.trim();
+  if (!currentQuestion) return;
+
 	isLoading2.value = true;
 
+  const currentSec = (player && typeof player.currentTime === 'function') ? Math.round(player.currentTime() || 0) : 0;
+  const totalSec = (player && typeof player.duration === 'function') ? Math.round(player.duration() || 0) : 0;
+  const frameImageBase64 = captureCurrentVideoFrame();
+
 	chat.value.push({
-		text: question.value,
+		text: currentQuestion,
 		role: 'user',
 		type: 'chat',
 	});
 
+  question.value = '';
+  scrollToBottom();
+
 	let tempBody = {
-		question: question.value,
-		fileId: currentVersion.value.id,
-		userId: user.value?.id || user.value?.userName || 'admin'
+		question: currentQuestion,
+		fileId: currentVersion.value?.id || video.value?.id || 'demo',
+		userId: user.value?.id || user.value?.userName || 'admin',
+    videoTitle: video.value?.name || video.value?.title || currentVersion.value?.title || 'Video bài thi sáng tạo số',
+    videoDescription: video.value?.description || currentVersion.value?.description || '',
+    videoUrl: currentVersion.value?.videoUrl || '',
+    currentTime: currentSec,
+    duration: totalSec,
+    image: frameImageBase64
 	};
 
 	try {
-		if (showGemini.value) {
-			await ask(tempBody);
-		}
+    let aiRes = await ask(tempBody);
 
-		else if (showVeo.value) {
-			await askVeo(tempBody);
-		}
+    if (aiRes && aiRes.text) {
+      chat.value.push({
+        text: aiRes.text,
+        role: aiRes.role || 'model',
+        type: aiRes.type || 'chat',
+      });
+    }
 
-		await fetchData();
+    scrollToBottom();
 		isLoading2.value = false;
 	} catch (error) {
     let errorMsg = error?.response?.data?.message || error?.message || 'Có lỗi xảy ra khi kết nối với AI';
@@ -166,8 +250,6 @@ async function askGemini() {
 		});
 		isLoading2.value = false;
 	}
-
-	question.value = '';
 }
 
 const feedbacks = computed(() => {
@@ -184,7 +266,7 @@ const feedbacks = computed(() => {
   return store.feedbacks;
 });
 
-const playerMode = ref('html5'); // 'html5' | 'drive'
+const playerMode = ref('drive'); // Mặc định 'drive' để phát qua CDN Google Drive/YouTube siêu mượt
 const playerHasError = ref(false);
 
 const driveFileId = computed(() => {
@@ -234,12 +316,11 @@ function updatePlayerSource() {
 
   const sources = [];
   if (url) {
-    sources.push({ src: url });
     sources.push({ src: url, type: 'video/mp4' });
+    sources.push({ src: url });
   }
   if (fileId) {
-    sources.push({ src: `https://lh3.googleusercontent.com/d/${fileId}` });
-    sources.push({ src: `https://drive.google.com/uc?export=download&id=${fileId}` });
+    sources.push({ src: `https://drive.google.com/uc?export=download&id=${fileId}`, type: 'video/mp4' });
   }
 
   player.src(sources);
@@ -312,6 +393,12 @@ async function fetchData() {
 
   if (!currentVersion.value) return;
 
+  if (driveFileId.value) {
+    playerMode.value = 'drive';
+  } else {
+    playerMode.value = 'html5';
+  }
+
   updatePlayerSource();
 
 	// get conversation
@@ -333,7 +420,23 @@ function initPlayer() {
   player = videojs(videoPlayer.value, {
     autoplay: false,
     controls: true,
+    preload: 'auto',
+    fluid: true,
+    responsive: true,
+    playbackRates: [0.5, 0.75, 1, 1.25, 1.5, 2],
   }, callback);
+
+  player.on('waiting', () => {
+    isBuffering.value = true;
+  });
+
+  player.on('playing', () => {
+    isBuffering.value = false;
+  });
+
+  player.on('canplay', () => {
+    isBuffering.value = false;
+  });
 
   player.on('error', () => {
     console.warn('Video.js failed to load HTML5 media. Auto-switching to Drive preview.');
@@ -531,24 +634,27 @@ function uploadVideo() {
 			<div class="flex-1 flex flex-col gap-4 min-w-0 overflow-hidden">
         <!-- Video Container -->
 				<div class="relative bg-slate-950 rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 border border-slate-800 flex-1 flex items-center justify-center min-h-[360px]">
-					<!-- HTML5 Player -->
-          <div :class="['w-full h-full flex items-center justify-center', playerMode === 'html5' ? 'block' : 'hidden']">
-            <video 
-              id="video-player"
-              ref="videoPlayer"
-              data-setup='{}'
-              class="vjs-fill video-js w-full h-full">
-            </video>
-          </div>
-
-          <!-- Google Drive Embedded Player -->
-          <div :class="['w-full h-full', playerMode === 'drive' ? 'block' : 'hidden']" v-if="driveFileId">
+          <!-- Google Drive Embedded Player (Mặc định: Phát siêu mượt qua hạ tầng CDN YouTube/Drive) -->
+          <div class="w-full h-full" v-if="driveFileId && playerMode === 'drive'">
             <iframe
               :src="drivePreviewUrl"
               class="w-full h-full border-none"
-              allow="autoplay; encrypted-media"
+              allow="autoplay; encrypted-media; fullscreen"
               allowfullscreen>
             </iframe>
+          </div>
+
+					<!-- HTML5 Player (Fallback khi xem file nội bộ không có link Drive) -->
+          <div :class="['w-full h-full flex items-center justify-center', (!driveFileId || playerMode === 'html5') ? 'block' : 'hidden']" v-else>
+            <video 
+              id="video-player"
+              ref="videoPlayer"
+              crossorigin="anonymous"
+              playsinline
+              preload="auto"
+              data-setup='{}'
+              class="vjs-fill video-js w-full h-full">
+            </video>
           </div>
 
           <!-- Error recovery overlay when HTML5 player cannot load media -->
@@ -649,27 +755,27 @@ function uploadVideo() {
 
 			<!-- Right Sidebar: Feedback List / Score & Evaluation / AI Assistant -->
 			<aside class="w-full lg:w-96 shrink-0 h-full flex flex-col bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
-        <!-- Segmented Tab Header (4 Tabs) -->
+        <!-- Segmented Tab Header (3 Tabs: Phản hồi, Điểm, Trợ lý AI) -->
         <div class="p-3 border-b border-slate-100 bg-slate-50/70 shrink-0">
-          <div class="grid grid-cols-4 gap-1 bg-slate-200/60 p-1 rounded-xl text-xs font-semibold">
+          <div class="grid grid-cols-3 gap-1.5 bg-slate-200/60 p-1 rounded-xl text-xs font-semibold">
             <button
               type="button"
               :class="[
-                'py-2 px-1.5 rounded-lg transition-all text-center flex items-center justify-center gap-1',
+                'py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer',
                 activeSideTab === 'feedback'
                   ? 'bg-white text-blue-600 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               ]"
               @click="activeSideTab = 'feedback'"
             >
-              <span>Phản hồi</span>
+              <span>💬 Phản hồi</span>
               <span class="px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 text-[10px]" v-if="feedbacks">{{ feedbacks.length }}</span>
             </button>
 
             <button
               type="button"
               :class="[
-                'py-2 px-1.5 rounded-lg transition-all text-center flex items-center justify-center gap-1',
+                'py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer',
                 activeSideTab === 'score'
                   ? 'bg-white text-amber-600 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
@@ -677,33 +783,20 @@ function uploadVideo() {
               @click="activeSideTab = 'score'"
             >
               <span>⚖️ Điểm</span>
-              <span class="px-1 py-0.2 rounded-full bg-amber-100 text-amber-700 text-[10px]" v-if="videoScores.count">{{ videoScores.avgScore }}</span>
+              <span class="px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-700 text-[10px]" v-if="videoScores.count">{{ videoScores.avgScore }}</span>
             </button>
 
             <button
               type="button"
               :class="[
-                'py-2 px-1.5 rounded-lg transition-all text-center flex items-center justify-center gap-1',
+                'py-2 px-2 rounded-lg transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer',
                 activeSideTab === 'gemini'
                   ? 'bg-white text-blue-600 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               ]"
               @click="activeSideTab = 'gemini'"
             >
-              <span>Gemini</span>
-            </button>
-
-            <button
-              type="button"
-              :class="[
-                'py-2 px-1.5 rounded-lg transition-all text-center flex items-center justify-center gap-1',
-                activeSideTab === 'veo'
-                  ? 'bg-white text-blue-600 shadow-xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              ]"
-              @click="activeSideTab = 'veo'"
-            >
-              <span>Veo</span>
+              <span>✨ Trợ lý AI</span>
             </button>
           </div>
         </div>
@@ -910,29 +1003,102 @@ function uploadVideo() {
         </div>
 
         <!-- Tab 3: Gemini Chat -->
-        <div class="flex-1 flex flex-col overflow-hidden" v-if="showGemini && !showVeo">
+        <div class="flex-1 flex flex-col overflow-hidden" v-if="showGemini">
+          <!-- Chat Header -->
+          <div class="px-4 py-2.5 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between shrink-0">
+            <div class="flex items-center gap-2">
+              <span class="relative flex size-2">
+                <span :class="['animate-ping absolute inline-flex h-full w-full rounded-full opacity-75', isLoading2 ? 'bg-blue-400' : 'bg-emerald-400']"></span>
+                <span :class="['relative inline-flex rounded-full size-2', isLoading2 ? 'bg-blue-500' : 'bg-emerald-500']"></span>
+              </span>
+              <span class="text-xs font-bold text-slate-800">Trợ lý Cố vấn Video AI</span>
+            </div>
+            <span class="text-[10px] font-semibold text-slate-500 bg-white px-2 py-0.5 rounded-md border border-slate-200/80 shadow-2xs">
+              {{ isLoading2 ? 'Đang suy nghĩ...' : 'Sẵn sàng' }}
+            </span>
+          </div>
+
           <!-- Chat messages stream -->
-          <div class="flex-1 overflow-y-auto p-4 space-y-3">
-            <div v-if="chat.length === 0" class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
-              <div class="size-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2">
-                <IconQuestion class="size-6 fill-current" />
+          <div ref="chatContainerRef" class="flex-1 overflow-y-auto p-4 space-y-3.5">
+            <!-- Welcome state when chat is empty -->
+            <div v-if="chat.length === 0" class="h-full flex flex-col justify-center py-4 space-y-4">
+              <div class="bg-gradient-to-br from-blue-50/80 via-indigo-50/40 to-white rounded-2xl p-4 border border-blue-100/80 text-center shadow-xs">
+                <div class="size-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center mx-auto mb-2.5 shadow-md shadow-blue-500/20 text-xl">
+                  ✨
+                </div>
+                <h3 class="text-xs font-bold text-slate-900">Trợ lý Phân tích Kỹ thuật Video</h3>
+                <p class="text-[11px] text-slate-600 mt-1 leading-relaxed max-w-xs mx-auto">
+                  Xin chào! Tôi có thể giúp bạn nhận xét kịch bản, âm thanh, ánh sáng hoặc góc quay cho video này.
+                </p>
               </div>
-              <p class="text-xs font-bold text-slate-700">Trợ lý Video AI</p>
-              <p class="text-[11px] text-slate-400 mt-1 max-w-xs">Đặt câu hỏi về kịch bản, lời thoại hoặc gợi ý chỉnh sửa cho video này.</p>
+
+              <div>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 px-1 flex items-center gap-1">
+                  <span>⚡</span>
+                  <span>Gợi ý câu hỏi nhanh:</span>
+                </p>
+                <div class="space-y-1.5">
+                  <button
+                    v-for="(p, i) in quickPrompts"
+                    :key="i"
+                    type="button"
+                    @click="selectQuickPrompt(p.prompt)"
+                    :disabled="isLoading2"
+                    class="w-full text-left p-2.5 rounded-xl bg-white hover:bg-blue-50/70 hover:border-blue-200 border border-slate-200/80 transition-all flex items-center gap-2.5 text-xs text-slate-700 font-medium group cursor-pointer shadow-2xs active:scale-[0.99]"
+                  >
+                    <span class="text-base shrink-0">{{ p.icon }}</span>
+                    <span class="flex-1 truncate group-hover:text-blue-600 transition-colors">{{ p.label }}</span>
+                    <span class="text-slate-300 group-hover:text-blue-500 group-hover:translate-x-0.5 transition-all text-xs font-bold">→</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div v-for="(item, idx) in chat" :key="idx" :class="['flex flex-col', item.role === 'user' ? 'items-end' : 'items-start']">
-              <div
-                v-if="item.type === 'chat'"
-                :class="[
-                  'max-w-[85%] rounded-2xl px-4 py-2.5 text-xs font-medium leading-relaxed shadow-xs',
-                  item.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-tr-xs'
-                    : 'bg-slate-100 text-slate-800 rounded-tl-xs border border-slate-200/80'
-                ]"
-                v-html="item.text"
-              ></div>
-            </div>
+            <!-- Messages list -->
+            <template v-else>
+              <div v-for="(item, idx) in chat" :key="idx" :class="['flex flex-col', item.role === 'user' ? 'items-end' : 'items-start']">
+                <div class="flex items-center gap-1.5 mb-1 px-1 text-[10px] text-slate-400 font-medium">
+                  <span v-if="item.role === 'user'">👤 Bạn</span>
+                  <span v-else class="text-blue-600 font-semibold flex items-center gap-1">✨ AI Trợ lý</span>
+                </div>
+                <div
+                  v-if="item.type === 'chat'"
+                  :class="[
+                    'max-w-[90%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed shadow-xs',
+                    item.role === 'user'
+                      ? 'bg-blue-600 text-white rounded-tr-xs font-medium'
+                      : 'bg-slate-50 text-slate-800 rounded-tl-xs border border-slate-200/80 ai-markdown'
+                  ]"
+                  v-html="item.role === 'user' ? item.text : renderMarkdown(item.text)"
+                ></div>
+              </div>
+
+              <!-- Typing indicator when waiting for AI -->
+              <div v-if="isLoading2" class="flex flex-col items-start">
+                <div class="flex items-center gap-1.5 mb-1 px-1 text-[10px] text-blue-600 font-semibold">
+                  <span>✨ AI Trợ lý</span>
+                </div>
+                <div class="max-w-[85%] rounded-2xl rounded-tl-xs px-4 py-2.5 text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/80 flex items-center gap-2 shadow-2xs">
+                  <span class="loading loading-dots loading-xs text-blue-600"></span>
+                  <span>Đang xem video và phân tích...</span>
+                </div>
+              </div>
+            </template>
+          </div>
+
+          <!-- Quick Chips Bar above Input (visible when chat has messages) -->
+          <div v-if="chat.length > 0" class="px-3 py-1.5 bg-slate-50/60 border-t border-slate-100 flex items-center gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+            <button
+              v-for="(p, i) in quickPrompts"
+              :key="i"
+              type="button"
+              @click="selectQuickPrompt(p.prompt)"
+              :disabled="isLoading2"
+              class="px-2.5 py-1 rounded-full bg-white hover:bg-blue-50 hover:border-blue-200 border border-slate-200/80 text-[10px] font-semibold text-slate-600 hover:text-blue-600 whitespace-nowrap transition-colors flex items-center gap-1 shadow-2xs shrink-0 cursor-pointer disabled:opacity-40"
+            >
+              <span>{{ p.icon }}</span>
+              <span>{{ p.label }}</span>
+            </button>
           </div>
 
           <!-- Chat Input -->
@@ -940,72 +1106,17 @@ function uploadVideo() {
             <textarea
               v-model="question"
               rows="1"
-              placeholder="Hỏi trợ lý AI..."
+              placeholder="Hỏi trợ lý AI về video..."
               class="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all resize-none"
               @keydown.enter.exact.prevent="askGemini"
             ></textarea>
             <button
               type="submit"
-              :disabled="isLoading2 || !question"
-              class="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold transition-all shadow-xs shrink-0"
+              :disabled="isLoading2 || !question || !question.trim()"
+              class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-semibold transition-all shadow-xs shrink-0 cursor-pointer"
             >
               <span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
               <span v-else>Gửi</span>
-            </button>
-          </form>
-        </div>
-
-        <!-- Tab 3: Veo Studio -->
-        <div class="flex-1 flex flex-col overflow-hidden" v-if="!showGemini && showVeo">
-          <!-- Chat messages stream -->
-          <div class="flex-1 overflow-y-auto p-4 space-y-3">
-            <div v-if="chat.length === 0" class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
-              <div class="size-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-2">
-                <IconCirclePlay class="size-6 fill-current" />
-              </div>
-              <p class="text-xs font-bold text-slate-700">Veo Video Generator</p>
-              <p class="text-[11px] text-slate-400 mt-1 max-w-xs">Tạo phân cảnh và b-roll mới bằng AI với mô hình Google Veo.</p>
-            </div>
-
-            <div v-for="(item, idx) in chat" :key="idx" :class="['flex flex-col', item.role === 'user' ? 'items-end' : 'items-start']">
-              <div v-if="item.type === 'image' && item.role === 'model'" class="rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-[85%]">
-                <img :src="item.text" class="w-full object-cover" />
-              </div>
-              <div v-else-if="item.type === 'video' && item.role === 'model'" class="rounded-2xl overflow-hidden border border-slate-200 shadow-sm max-w-[85%]">
-                <video controls class="w-full">
-                  <source :src="item.text" type="video/mp4">
-                  Trình duyệt không hỗ trợ thẻ video.
-                </video>
-              </div>
-              <div
-                v-else
-                :class="[
-                  'max-w-[85%] rounded-2xl px-4 py-2.5 text-xs font-medium leading-relaxed shadow-xs',
-                  item.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-tr-xs'
-                    : 'bg-slate-100 text-slate-800 rounded-tl-xs border border-slate-200/80'
-                ]"
-                v-html="item.text"
-              ></div>
-            </div>
-          </div>
-
-          <!-- Chat Input -->
-          <form class="p-3 border-t border-slate-100 bg-white flex items-center gap-2 shrink-0" @submit.prevent="askGemini">
-            <textarea
-              v-model="question"
-              rows="1"
-              placeholder="Yêu cầu tạo cảnh Veo..."
-              class="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all resize-none"
-              @keydown.enter.exact.prevent="askGemini"
-            ></textarea>
-            <button
-              type="submit"
-              :disabled="isLoading2 || !question"
-              class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-xs font-semibold transition-all shadow-xs shrink-0"
-            >
-              <span class="loading loading-spinner loading-xs" v-if="isLoading2"></span>
-              <span v-else>Tạo</span>
             </button>
           </form>
         </div>
@@ -1054,3 +1165,43 @@ function uploadVideo() {
     </div>
 	</div>
 </template>
+
+<style scoped>
+:deep(.ai-markdown p) {
+  margin-bottom: 0.5rem;
+}
+:deep(.ai-markdown p:last-child) {
+  margin-bottom: 0;
+}
+:deep(.ai-markdown ul) {
+  list-style-type: disc;
+  margin-left: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+:deep(.ai-markdown ol) {
+  list-style-type: decimal;
+  margin-left: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+:deep(.ai-markdown li) {
+  margin-bottom: 0.25rem;
+}
+:deep(.ai-markdown strong) {
+  font-weight: 700;
+  color: #0f172a;
+}
+:deep(.ai-markdown h1),
+:deep(.ai-markdown h2),
+:deep(.ai-markdown h3) {
+  font-weight: 700;
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+  color: #0f172a;
+}
+:deep(.ai-markdown code) {
+  background-color: #f1f5f9;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+}
+</style>
