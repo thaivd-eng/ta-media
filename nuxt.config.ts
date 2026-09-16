@@ -7,7 +7,7 @@ export default defineNuxtConfig({
   modules: ["@nuxtjs/tailwindcss", "@pinia/nuxt"],
   app: {
     head: {
-      title: "MediaAI - Trợ lý Giám định & Đánh giá Tiêu chuẩn Kỹ thuật Nội dung Số",
+      title: "MediaAI - Nền tảng tổ chức cuộc thi sáng tạo số tích hợp AI hỗ trợ đánh giá kỹ thuật video",
       link: [
         { rel: "preconnect", href: "https://fonts.googleapis.com" },
         { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" },

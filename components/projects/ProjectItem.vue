@@ -8,10 +8,34 @@ const props = defineProps({
 const emits = defineEmits(['clickEdit', 'clickDelete']);
 
 const imgError = ref(false);
+watch(() => props.project?.thumbnailUrl, () => {
+  imgError.value = false;
+});
+
 const validThumbnailUrl = computed(() => {
   if (imgError.value || !props.project?.thumbnailUrl) return '';
   return formatThumbnailUrl(props.project.thumbnailUrl);
 });
+
+function getProjectInitials(name) {
+  if (!name) return 'AI';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function getProjectGradient(id) {
+  const gradients = [
+    'from-blue-600 via-indigo-600 to-violet-700',
+    'from-violet-600 via-purple-600 to-indigo-800',
+    'from-sky-500 via-blue-600 to-indigo-700',
+    'from-indigo-600 via-blue-600 to-cyan-700',
+    'from-emerald-600 via-teal-600 to-cyan-700',
+    'from-rose-500 via-pink-600 to-purple-700',
+  ];
+  const num = parseInt(String(id || '').slice(-4)) || 0;
+  return gradients[num % gradients.length];
+}
 
 const userCookie = useCookie('user');
 const isStudent = computed(() => {
@@ -44,15 +68,20 @@ function onClickEdit() {
         :src="validThumbnailUrl"
         :alt="props.project.name"
         referrerpolicy="no-referrer"
+        loading="lazy"
         @error="imgError = true"
         class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
       />
-      <!-- Fallback Placeholder -->
-      <div v-else class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50/50 p-6 text-center">
-        <div class="size-12 rounded-2xl bg-blue-100/80 flex items-center justify-center text-blue-600 mb-2 transition-transform group-hover:scale-110 shadow-xs">
-          <IconCirclePlay class="size-6 fill-current" />
+      <!-- Fallback Gradient Showcase for missing/dead thumbnails -->
+      <div
+        v-else
+        :class="['w-full h-full flex flex-col items-center justify-center text-white p-5 text-center select-none bg-gradient-to-br', getProjectGradient(props.project?.id)]"
+      >
+        <div class="size-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-2 shadow-inner font-black text-lg">
+          {{ getProjectInitials(props.project?.name) }}
         </div>
-        <span class="text-xs font-semibold text-slate-400">Cuộc thi video</span>
+        <p class="text-xs font-bold text-white/95 line-clamp-1 max-w-[90%]">{{ props.project?.name }}</p>
+        <span class="text-[10px] text-white/75 mt-0.5">Cuộc thi sáng tạo video</span>
       </div>
 
       <!-- Play Overlay Pill on Hover -->

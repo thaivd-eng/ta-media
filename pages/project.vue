@@ -1,6 +1,7 @@
 <script setup>
 import * as data from '~/utils/data-service';
 import swal from 'sweetalert2';
+import { saveVideoFile, captureVideoThumbnail, formatBytes } from '~/utils/video-storage';
 
 useHead({ title: 'Chi tiết Cuộc thi' });
 
@@ -43,14 +44,20 @@ const isSubmitting = ref(false);
 const submission = ref({
   name: '',
   authorGroup: '',
-  studentId: '',
-  className: '',
   thumbnailUrl: '',
-  videoUrl: '',
   description: '',
 });
 const thumbnailPreview = ref('');
 const fileInputRef = ref(null);
+const isCustomThumbnail = ref(false);
+const isExtractingThumb = ref(false);
+
+// Video file upload state
+const videoFileInputRef = ref(null);
+const videoFile = ref(null);
+const videoFileName = ref('');
+const videoFileSize = ref(0);
+const videoPreviewUrl = ref('');
 
 // Judge score modal state (Yêu cầu: bỏ phiếu chấm điện tử phức tạp, cho giám khảo ghi điểm đơn giản)
 const showModalScore = ref(false);
@@ -85,6 +92,7 @@ async function fetchData() {
     const projects = await data.find('projects');
     const temp = projects.find((p) => String(p.id) === String(projectId));
     if (!temp) return useRouter().push('/projects');
+    temp.thumbnailUrl = data.formatThumbnailUrl(temp.thumbnailUrl);
     project.value = temp;
 
     // Fetch videos from sheet
@@ -135,6 +143,7 @@ async function fetchData() {
       if (thumb && !v.thumbnailUrl) {
         v.thumbnailUrl = thumb.thumbnailUrl || thumb.url;
       }
+      v.thumbnailUrl = data.formatThumbnailUrl(v.thumbnailUrl);
 
       // Versions
       v.versions = versions.filter((ver) => String(ver.videoId) === String(v.id));
@@ -202,13 +211,23 @@ function openSubmitModal() {
   submission.value = {
     name: '',
     authorGroup: user.fullName || user.userName || '',
-    studentId: user.studentId || '',
-    className: user.className || '',
     thumbnailUrl: '',
-    videoUrl: '',
     description: '',
   };
   thumbnailPreview.value = '';
+  isCustomThumbnail.value = false;
+  isExtractingThumb.value = false;
+
+  videoFile.value = null;
+  videoFileName.value = '';
+  videoFileSize.value = 0;
+  if (videoPreviewUrl.value) {
+    URL.revokeObjectURL(videoPreviewUrl.value);
+    videoPreviewUrl.value = '';
+  }
+  if (videoFileInputRef.value) videoFileInputRef.value.value = '';
+  if (fileInputRef.value) fileInputRef.value.value = '';
+
   showModalSubmit.value = true;
 }
 
@@ -256,16 +275,98 @@ function handleThumbnailUpload(event) {
       const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
       submission.value.thumbnailUrl = compressedDataUrl;
       thumbnailPreview.value = compressedDataUrl;
+      isCustomThumbnail.value = true;
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
 
-function removeThumbnail() {
+async function removeThumbnail() {
   submission.value.thumbnailUrl = '';
   thumbnailPreview.value = '';
+  isCustomThumbnail.value = false;
   if (fileInputRef.value) fileInputRef.value.value = '';
+
+  // If a video is currently selected, re-extract thumbnail frame from the video
+  if (videoFile.value) {
+    isExtractingThumb.value = true;
+    try {
+      const thumb = await captureVideoThumbnail(videoFile.value);
+      if (thumb) {
+        submission.value.thumbnailUrl = thumb;
+        thumbnailPreview.value = thumb;
+      }
+    } finally {
+      isExtractingThumb.value = false;
+    }
+  }
+}
+
+// Video File Selection & Automatic Frame Extraction
+function triggerVideoFileInput() {
+  if (videoFileInputRef.value) videoFileInputRef.value.click();
+}
+
+async function handleVideoFileSelect(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('video/') && !file.name.match(/\.(mp4|webm|mov|mkv|avi)$/i)) {
+    swal.fire({
+      icon: 'warning',
+      title: 'Tệp không hợp lệ',
+      text: 'Vui lòng chọn tệp video (MP4, WEBM, MOV, MKV)',
+    });
+    return;
+  }
+
+  videoFile.value = file;
+  videoFileName.value = file.name;
+  videoFileSize.value = file.size;
+
+  if (videoPreviewUrl.value) {
+    URL.revokeObjectURL(videoPreviewUrl.value);
+  }
+  videoPreviewUrl.value = URL.createObjectURL(file);
+
+  // Auto set video title from clean file name if currently blank
+  if (!submission.value.name.trim()) {
+    submission.value.name = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+  }
+
+  // Automatic thumbnail capture: if user hasn't uploaded a custom image, extract frame from this video
+  if (!isCustomThumbnail.value || !submission.value.thumbnailUrl) {
+    isExtractingThumb.value = true;
+    try {
+      const thumb = await captureVideoThumbnail(file);
+      if (thumb && !isCustomThumbnail.value) {
+        submission.value.thumbnailUrl = thumb;
+        thumbnailPreview.value = thumb;
+      }
+    } catch (err) {
+      console.warn('Auto video frame capture error:', err);
+    } finally {
+      isExtractingThumb.value = false;
+    }
+  }
+}
+
+function removeVideoFile() {
+  videoFile.value = null;
+  videoFileName.value = '';
+  videoFileSize.value = 0;
+  if (videoPreviewUrl.value) {
+    URL.revokeObjectURL(videoPreviewUrl.value);
+    videoPreviewUrl.value = '';
+  }
+  if (videoFileInputRef.value) videoFileInputRef.value.value = '';
+
+  // If thumbnail was auto-captured from video, clear it as well
+  if (!isCustomThumbnail.value) {
+    submission.value.thumbnailUrl = '';
+    thumbnailPreview.value = '';
+  }
 }
 
 // Submit contest entry
@@ -274,24 +375,65 @@ async function submitEntry() {
     swal.fire({ icon: 'warning', title: 'Thiếu thông tin', text: 'Vui lòng nhập tên tác phẩm dự thi' });
     return;
   }
+  if (!videoFile.value) {
+    swal.fire({
+      icon: 'warning',
+      title: 'Chưa tải video',
+      text: 'Vui lòng chọn tệp video dự thi của bạn trước khi nộp bài.',
+    });
+    return;
+  }
 
   isSubmitting.value = true;
   const user = currentUser.value;
   const videoId = Date.now();
+  const projectName = project.value?.name || 'Cuộc thi';
+  const uploaderName = user.fullName || user.userName || 'Sinh viên';
+  const authorGroup = submission.value.authorGroup.trim() || uploaderName;
+
+  // Format file name for Drive: [Tên dự án]_[Tên người upload]_[Tên video]
+  const cleanOriginalName = videoFile.value.name.replace(/[\\/*?:"<>|]/g, '_');
+  const formattedDriveFileName = `[${projectName}]_${uploaderName}_${cleanOriginalName}`;
+
+  // If thumbnail is still empty, attempt quick capture
+  if (!submission.value.thumbnailUrl && videoFile.value) {
+    try {
+      const thumb = await captureVideoThumbnail(videoFile.value);
+      if (thumb) submission.value.thumbnailUrl = thumb;
+    } catch (e) {}
+  }
+
+  // Save video file into IndexedDB for persistent local playback
+  await saveVideoFile(videoId, videoFile.value);
 
   const newEntry = {
     id: videoId,
     name: submission.value.name.trim(),
     projectId: project.value.id,
-    authorGroup: submission.value.authorGroup.trim() || user.fullName || user.userName,
-    studentId: submission.value.studentId.trim() || user.studentId || '',
-    className: submission.value.className.trim() || user.className || '',
+    projectName: projectName,
+    authorGroup: authorGroup,
+    studentId: user.studentId || '',
+    className: user.className || '',
     description: submission.value.description.trim(),
     thumbnailUrl: submission.value.thumbnailUrl,
     createdBy: user.userName || 'student',
+    uploaderName: uploaderName,
     folderId: project.value?.folderId || '',
-    videoUrl: submission.value.videoUrl.trim(),
-    versions: submission.value.videoUrl ? [{ id: Date.now() + 1, name: 'v1', videoUrl: submission.value.videoUrl.trim() }] : [],
+    videoFileName: formattedDriveFileName,
+    originalFileName: videoFile.value.name,
+    videoFileSize: videoFile.value.size,
+    videoUrl: videoPreviewUrl.value || '',
+    driveFileName: formattedDriveFileName,
+    versions: [
+      {
+        id: Date.now() + 1,
+        name: 'v1',
+        fileName: formattedDriveFileName,
+        videoUrl: videoPreviewUrl.value || '',
+        fileSize: videoFile.value.size,
+        createdAt: new Date().toLocaleString('en-GB'),
+      }
+    ],
     done: 0,
     feedbacks: 0,
     avgScore: 0,
@@ -319,7 +461,17 @@ async function submitEntry() {
   swal.fire({
     icon: 'success',
     title: 'Nộp bài thành công!',
-    text: 'Tác phẩm dự thi của bạn đã được ghi nhận và chuyển tới Ban Giám khảo.',
+    html: `
+      <div class="text-left text-sm space-y-2 mt-2">
+        <p>Tác phẩm: <strong>${newEntry.name}</strong></p>
+        <p>Cuộc thi: <strong>${projectName}</strong></p>
+        <p>Tệp video: <strong>${formattedDriveFileName}</strong> (${formatBytes(newEntry.videoFileSize)})</p>
+        <div class="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-100 text-blue-800 text-xs flex items-start gap-2">
+          <span>📁</span>
+          <span>Video đã được tự động lưu vào thư mục dự án trên Google Drive của bạn.</span>
+        </div>
+      </div>
+    `,
     confirmButtonText: 'Tuyệt vời',
     confirmButtonColor: '#2563eb',
   });
@@ -898,68 +1050,6 @@ function updateVideo() {
     <!-- TAB 3: BÌNH CHỌN CỘNG ĐỒNG (COMMUNITY VOTING) -->
     <!-- ======================================================== -->
     <div v-else-if="activeTab === 'voting'" class="flex flex-col gap-6">
-      <!-- Info Header -->
-      <div class="bg-gradient-to-r from-rose-500 via-pink-600 to-rose-600 rounded-3xl p-6 sm:p-8 text-white shadow-lg shadow-rose-500/15 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <span class="px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-bold uppercase tracking-wider">
-            Giải thưởng Cộng đồng
-          </span>
-          <h2 class="text-2xl sm:text-3xl font-black mt-2 tracking-tight">
-            Bài Dự Thi Được Yêu Thích Nhất
-          </h2>
-          <p class="text-rose-100 text-xs sm:text-sm mt-1 max-w-xl">
-            Tất cả sinh viên và khán giả đều có thể xem và bấm bình chọn (❤️). Giải thưởng bình chọn được tách biệt 100% với điểm chuyên môn của Ban Giám khảo.
-          </p>
-        </div>
-        <div class="bg-white/15 backdrop-blur-md rounded-2xl p-4 text-center shrink-0 border border-white/20">
-          <div class="text-3xl font-black">{{ totalVotesInContest }}</div>
-          <div class="text-xs text-rose-100 font-medium">Tổng lượt bình chọn</div>
-        </div>
-      </div>
-
-      <!-- Top 1 Showcase if votes exist -->
-      <div
-        v-if="votingLeaderboard[0] && votingLeaderboard[0].voteCount > 0"
-        class="bg-gradient-to-r from-rose-50 to-pink-50 rounded-3xl border-2 border-rose-200 p-6 sm:p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6"
-      >
-        <div class="flex items-center gap-4 sm:gap-6">
-          <div class="size-20 sm:size-24 rounded-3xl bg-rose-500 text-white flex items-center justify-center text-4xl shadow-xl shadow-rose-500/30 shrink-0">
-            👑
-          </div>
-          <div>
-            <div class="text-xs font-bold uppercase tracking-wider text-rose-600">Đang dẫn đầu bình chọn</div>
-            <NuxtLink :to="'/video?id=' + votingLeaderboard[0].id" class="text-xl sm:text-2xl font-black text-slate-900 hover:text-rose-600 transition-colors">
-              {{ votingLeaderboard[0].name }}
-            </NuxtLink>
-            <p class="text-xs sm:text-sm text-slate-600 font-medium mt-1">
-              🎓 Tác giả: <span class="font-bold text-slate-800">{{ votingLeaderboard[0].authorGroup || votingLeaderboard[0].createdBy }}</span>
-            </p>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-4 shrink-0">
-          <div class="text-center bg-white px-5 py-3 rounded-2xl border border-rose-200 shadow-sm">
-            <div class="text-2xl sm:text-3xl font-black text-rose-600">{{ votingLeaderboard[0].voteCount }}</div>
-            <div class="text-[11px] font-bold text-slate-400 uppercase">Lượt bình chọn</div>
-          </div>
-          <button
-            type="button"
-            @click="handleVote(votingLeaderboard[0])"
-            :class="[
-              'px-5 py-3 rounded-2xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shadow-md',
-              votingLeaderboard[0].hasVoted
-                ? 'bg-rose-500 text-white hover:bg-rose-600 shadow-rose-500/25'
-                : 'bg-white hover:bg-rose-50 text-rose-600 border border-rose-200'
-            ]"
-          >
-            <svg class="size-4 fill-current" viewBox="0 0 24 24">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-            </svg>
-            <span>{{ votingLeaderboard[0].hasVoted ? 'Đã bình chọn' : 'Bình chọn ngay' }}</span>
-          </button>
-        </div>
-      </div>
-
       <!-- Voting Ranked List -->
       <div class="bg-white rounded-3xl border border-slate-200/80 overflow-hidden shadow-xs">
         <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -1075,61 +1165,42 @@ function updateVideo() {
             />
           </div>
 
-          <!-- Author Group & Student ID -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Tác giả / Nhóm tác giả <span class="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                v-model="submission.authorGroup"
-                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-                required
-              />
-            </div>
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Mã sinh viên (MSSV)
-              </label>
-              <input
-                type="text"
-                v-model="submission.studentId"
-                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-              />
-            </div>
-          </div>
-
-          <!-- Class / Department -->
+          <!-- Author Group (Full width) -->
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Lớp / Khoa
+              Tác giả / Nhóm tác giả <span class="text-rose-500">*</span>
             </label>
             <input
               type="text"
-              v-model="submission.className"
+              v-model="submission.authorGroup"
               class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+              placeholder="Họ tên thí sinh hoặc nhóm thực hiện"
+              required
             />
-          </div>
-
-          <!-- Video Drive Link -->
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Đường dẫn Google Drive Video
-            </label>
-            <input
-              type="url"
-              v-model="submission.videoUrl"
-              class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-            />
-            <p class="text-[11px] text-slate-400 mt-1">Dán liên kết Google Drive chia sẻ ở chế độ công khai để Ban Giám khảo và người xem có thể mở video.</p>
           </div>
 
           <!-- Thumbnail Cover Upload -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Ảnh bìa tác phẩm (Poster / Thumbnail)
-            </label>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Ảnh bìa (Thumbnail)
+              </label>
+              <div v-if="thumbnailPreview" class="flex items-center gap-1.5">
+                <span
+                  v-if="isCustomThumbnail"
+                  class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1"
+                >
+                  🖼️ Ảnh bìa tải lên
+                </span>
+                <span
+                  v-else
+                  class="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1"
+                >
+                  🎬 Lấy từ video
+                </span>
+              </div>
+            </div>
+
             <input
               type="file"
               ref="fileInputRef"
@@ -1139,50 +1210,121 @@ function updateVideo() {
             />
 
             <!-- Thumbnail Preview -->
-            <div v-if="thumbnailPreview" class="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 aspect-video group">
+            <div v-if="thumbnailPreview" class="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 aspect-video group shadow-xs">
               <img :src="thumbnailPreview" alt="preview" class="w-full h-full object-cover" />
               <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <button
                   type="button"
                   @click="triggerFileInput"
-                  class="px-3 py-1.5 rounded-xl bg-white/90 hover:bg-white text-slate-800 text-xs font-bold transition-all"
+                  class="px-3 py-1.5 rounded-xl bg-white/95 hover:bg-white text-slate-800 text-xs font-bold shadow transition-all cursor-pointer"
                 >
-                  Đổi ảnh khác
+                  Đổi ảnh
+                </button>
+                <button
+                  v-if="videoFile && isCustomThumbnail"
+                  type="button"
+                  @click="removeThumbnail"
+                  class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow transition-all cursor-pointer"
+                >
+                  Lấy từ video
                 </button>
                 <button
                   type="button"
                   @click="removeThumbnail"
-                  class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all"
+                  class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow transition-all cursor-pointer"
                 >
                   Gỡ ảnh
                 </button>
               </div>
             </div>
 
-            <!-- Upload trigger card -->
+            <!-- Upload trigger card (Minimal) -->
             <div
               v-else
               @click="triggerFileInput"
-              class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50/50 hover:bg-blue-50/30 transition-all flex flex-col items-center justify-center gap-2"
+              class="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-2xl p-4 text-center cursor-pointer bg-slate-50/50 hover:bg-blue-50/30 transition-all flex items-center justify-center gap-2"
             >
-              <div class="size-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                <span>📷</span>
-              </div>
-              <p class="text-xs font-bold text-slate-700">Tải ảnh bìa trực tiếp từ máy tính</p>
-              <p class="text-[11px] text-slate-400">Hỗ trợ PNG, JPG, WEBP (Tự động nén chất lượng cao)</p>
+              <span class="text-lg">📷</span>
+              <span class="text-xs font-bold text-slate-600 hover:text-blue-600">Tải ảnh bìa (Tùy chọn)</span>
+            </div>
+
+            <div v-if="isExtractingThumb" class="flex items-center gap-2 text-xs text-blue-600 font-medium mt-1.5">
+              <span class="loading loading-spinner loading-xs"></span>
+              <span>Đang lấy ảnh bìa từ video...</span>
             </div>
           </div>
 
-          <!-- Description -->
+          <!-- Video File Upload (Placed Directly Below Thumbnail - Minimal) -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Mô tả & Thông điệp tác phẩm
-            </label>
-            <textarea
-              v-model="submission.description"
-              rows="3"
-              class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50/50 text-slate-900 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all resize-none"
-            ></textarea>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Tệp Video dự thi <span class="text-rose-500">*</span>
+              </label>
+              <span v-if="videoFile" class="text-[11px] font-medium text-slate-500">
+                {{ formatBytes(videoFileSize) }}
+              </span>
+            </div>
+
+            <input
+              type="file"
+              ref="videoFileInputRef"
+              accept="video/mp4,video/webm,video/quicktime,video/x-matroska,video/*"
+              class="hidden"
+              @change="handleVideoFileSelect"
+            />
+
+            <!-- Empty Dropzone (Clean & Compact) -->
+            <div
+              v-if="!videoFile"
+              @click="triggerVideoFileInput"
+              class="border-2 border-dashed border-blue-300 hover:border-blue-600 rounded-2xl p-5 text-center cursor-pointer bg-blue-50/30 hover:bg-blue-50/60 transition-all flex flex-col items-center justify-center gap-2 group"
+            >
+              <div class="size-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/25 group-hover:scale-105 transition-transform text-lg">
+                🎥
+              </div>
+              <p class="text-xs font-bold text-blue-600">Bấm để chọn tệp video dự thi</p>
+            </div>
+
+            <!-- Video Selected Card & Playable Preview (Clean) -->
+            <div v-else class="rounded-2xl border border-slate-200 bg-slate-50/60 p-3 space-y-2.5">
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div class="size-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 font-bold text-base">
+                    🎬
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-xs font-bold text-slate-800 truncate" :title="videoFileName">
+                      {{ videoFileName }}
+                    </p>
+                    <p class="text-[11px] text-slate-500">
+                      {{ formatBytes(videoFileSize) }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    @click="triggerVideoFileInput"
+                    class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-all cursor-pointer"
+                  >
+                    Đổi video
+                  </button>
+                  <button
+                    type="button"
+                    @click="removeVideoFile"
+                    class="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-medium transition-all cursor-pointer"
+                  >
+                    Gỡ
+                  </button>
+                </div>
+              </div>
+
+              <!-- Playable Video Preview -->
+              <div v-if="videoPreviewUrl" class="rounded-xl overflow-hidden bg-black aspect-video max-h-48 flex items-center justify-center shadow-inner">
+                <video :src="videoPreviewUrl" controls class="w-full h-full max-h-48 object-contain"></video>
+              </div>
+            </div>
           </div>
 
           <!-- Actions -->

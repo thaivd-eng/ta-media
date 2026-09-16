@@ -170,6 +170,7 @@ onBeforeMount(async () => {
       let thumbnail = thumbnails.find((t) => t.projectId == p.id);
       if (thumbnail) p.thumbnailUrl = thumbnail.thumbnailUrl;
     }
+    p.thumbnailUrl = data.formatThumbnailUrl(p.thumbnailUrl);
     return p;
   });
 

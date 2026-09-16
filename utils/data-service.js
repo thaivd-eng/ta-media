@@ -380,12 +380,13 @@ export function formatThumbnailUrl(url) {
   if (!url) return "";
   let trimmed = String(url).trim();
   if (!trimmed) return "";
+  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return trimmed;
 
-  // Extract Drive / lh3 file ID
+  // Extract Drive / lh3 file ID and serve via Google's high-speed public CDN
   let match = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/) || trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if (match && match[1]) {
     let fileId = match[1].split("=")[0];
-    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
+    return `https://lh3.googleusercontent.com/d/${fileId}`;
   }
 
   return trimmed;

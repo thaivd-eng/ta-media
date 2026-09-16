@@ -1,6 +1,7 @@
 <script setup>
 import * as data from '~/utils/data-service';
 import swal from 'sweetalert2';
+import { saveVideoFile, captureVideoThumbnail, formatBytes } from '~/utils/video-storage';
 
 useHead({ title: 'Cổng thông tin Sinh viên - MediaAI' });
 
@@ -37,14 +38,20 @@ const submission = ref({
   projectId: '',
   name: '',
   authorGroup: '',
-  studentId: '',
-  className: '',
   thumbnailUrl: '',
-  videoUrl: '',
   description: '',
 });
 const thumbnailPreview = ref('');
 const fileInputRef = ref(null);
+const isCustomThumbnail = ref(false);
+const isExtractingThumb = ref(false);
+
+// Video file upload state
+const videoFileInputRef = ref(null);
+const videoFile = ref(null);
+const videoFileName = ref('');
+const videoFileSize = ref(0);
+const videoPreviewUrl = ref('');
 
 // Edit submission modal state
 const showModalEdit = ref(false);
@@ -56,6 +63,30 @@ const editingVideo = ref({
   description: '',
   videoUrl: '',
 });
+
+// Image error tracking and initials generators
+const failedProjectThumbnails = ref({});
+const failedVideoThumbnails = ref({});
+
+function getProjectInitials(name) {
+  if (!name) return 'AI';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function getProjectGradient(id) {
+  const gradients = [
+    'from-blue-600 via-indigo-600 to-violet-700',
+    'from-violet-600 via-purple-600 to-indigo-800',
+    'from-sky-500 via-blue-600 to-indigo-700',
+    'from-indigo-600 via-blue-600 to-cyan-700',
+    'from-emerald-600 via-teal-600 to-cyan-700',
+    'from-rose-500 via-pink-600 to-purple-700',
+  ];
+  const num = parseInt(String(id).slice(-4)) || 0;
+  return gradients[num % gradients.length];
+}
 
 onBeforeMount(async () => {
   await fetchData();
@@ -71,9 +102,35 @@ async function fetchData() {
     } catch (e) {
       fetchedProjects = [];
     }
-    projects.value = (fetchedProjects || []).filter(p => p.isDisabled != 1);
 
-    // 2. Fetch all videos & merge with local cache
+    // 2. Fetch thumbnails
+    let thumbnails = [];
+    try {
+      thumbnails = await data.find('thumbnails');
+    } catch (e) {}
+
+    // Map projects with thumbnails & fast Google CDN URL
+    projects.value = (fetchedProjects || [])
+      .filter((p) => p.isDisabled != 1)
+      .map((p) => {
+        let localThumb = null;
+        if (process.client) {
+          try {
+            const saved = JSON.parse(localStorage.getItem('mediaai_thumbnails') || '{}');
+            localThumb = saved[String(p.id)] || null;
+          } catch (e) {}
+        }
+        if (localThumb) {
+          p.thumbnailUrl = localThumb;
+        } else if (!p.thumbnailUrl) {
+          let t = (thumbnails || []).find((thumb) => String(thumb.projectId) === String(p.id));
+          if (t) p.thumbnailUrl = t.thumbnailUrl || t.url;
+        }
+        p.thumbnailUrl = data.formatThumbnailUrl(p.thumbnailUrl);
+        return p;
+      });
+
+    // 3. Fetch all videos & merge with local cache
     let sheetVideos = [];
     try {
       sheetVideos = await data.find('videos');
@@ -88,18 +145,13 @@ async function fetchData() {
       }
     });
 
-    // 3. Thumbnails
-    let thumbnails = [];
-    try {
-      thumbnails = await data.find('thumbnails');
-    } catch (e) {}
-
     // Augment videos with scores & votes
     allVideos.value = combined.map(v => {
-      const thumb = thumbnails.find(t => String(t.videoId) === String(v.id));
+      const thumb = (thumbnails || []).find(t => String(t.videoId) === String(v.id));
       if (thumb && !v.thumbnailUrl) {
         v.thumbnailUrl = thumb.thumbnailUrl || thumb.url;
       }
+      v.thumbnailUrl = data.formatThumbnailUrl(v.thumbnailUrl);
       const scoreData = data.calculateVideoScores(v.id);
       v.avgScore = scoreData.avgScore;
       v.scoreCount = scoreData.count;
@@ -150,13 +202,23 @@ function openSubmitModal(projectId = null) {
     projectId: projectId || (projects.value[0]?.id || ''),
     name: '',
     authorGroup: user.fullName || user.userName || '',
-    studentId: user.studentId || '',
-    className: user.className || '',
     thumbnailUrl: '',
-    videoUrl: '',
     description: '',
   };
   thumbnailPreview.value = '';
+  isCustomThumbnail.value = false;
+  isExtractingThumb.value = false;
+
+  videoFile.value = null;
+  videoFileName.value = '';
+  videoFileSize.value = 0;
+  if (videoPreviewUrl.value) {
+    URL.revokeObjectURL(videoPreviewUrl.value);
+    videoPreviewUrl.value = '';
+  }
+  if (videoFileInputRef.value) videoFileInputRef.value.value = '';
+  if (fileInputRef.value) fileInputRef.value.value = '';
+
   showModalSubmit.value = true;
 }
 
@@ -204,16 +266,98 @@ function handleThumbnailUpload(event) {
       const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
       submission.value.thumbnailUrl = compressedDataUrl;
       thumbnailPreview.value = compressedDataUrl;
+      isCustomThumbnail.value = true;
     };
     img.src = e.target.result;
   };
   reader.readAsDataURL(file);
 }
 
-function removeThumbnail() {
+async function removeThumbnail() {
   submission.value.thumbnailUrl = '';
   thumbnailPreview.value = '';
+  isCustomThumbnail.value = false;
   if (fileInputRef.value) fileInputRef.value.value = '';
+
+  // If a video is currently selected, re-extract thumbnail frame from the video
+  if (videoFile.value) {
+    isExtractingThumb.value = true;
+    try {
+      const thumb = await captureVideoThumbnail(videoFile.value);
+      if (thumb) {
+        submission.value.thumbnailUrl = thumb;
+        thumbnailPreview.value = thumb;
+      }
+    } finally {
+      isExtractingThumb.value = false;
+    }
+  }
+}
+
+// Video File Selection & Automatic Frame Extraction
+function triggerVideoFileInput() {
+  if (videoFileInputRef.value) videoFileInputRef.value.click();
+}
+
+async function handleVideoFileSelect(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('video/') && !file.name.match(/\.(mp4|webm|mov|mkv|avi)$/i)) {
+    swal.fire({
+      icon: 'warning',
+      title: 'Tệp không hợp lệ',
+      text: 'Vui lòng chọn tệp video (MP4, WEBM, MOV, MKV)',
+    });
+    return;
+  }
+
+  videoFile.value = file;
+  videoFileName.value = file.name;
+  videoFileSize.value = file.size;
+
+  if (videoPreviewUrl.value) {
+    URL.revokeObjectURL(videoPreviewUrl.value);
+  }
+  videoPreviewUrl.value = URL.createObjectURL(file);
+
+  // Auto set video title from clean file name if currently blank
+  if (!submission.value.name.trim()) {
+    submission.value.name = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+  }
+
+  // Automatic thumbnail capture: if user hasn't uploaded a custom image, extract frame from this video
+  if (!isCustomThumbnail.value || !submission.value.thumbnailUrl) {
+    isExtractingThumb.value = true;
+    try {
+      const thumb = await captureVideoThumbnail(file);
+      if (thumb && !isCustomThumbnail.value) {
+        submission.value.thumbnailUrl = thumb;
+        thumbnailPreview.value = thumb;
+      }
+    } catch (err) {
+      console.warn('Auto video frame capture error:', err);
+    } finally {
+      isExtractingThumb.value = false;
+    }
+  }
+}
+
+function removeVideoFile() {
+  videoFile.value = null;
+  videoFileName.value = '';
+  videoFileSize.value = 0;
+  if (videoPreviewUrl.value) {
+    URL.revokeObjectURL(videoPreviewUrl.value);
+    videoPreviewUrl.value = '';
+  }
+  if (videoFileInputRef.value) videoFileInputRef.value.value = '';
+
+  // If thumbnail was auto-captured from video, clear it as well
+  if (!isCustomThumbnail.value) {
+    submission.value.thumbnailUrl = '';
+    thumbnailPreview.value = '';
+  }
 }
 
 // Submit contest entry
@@ -226,25 +370,66 @@ async function submitEntry() {
     swal.fire({ icon: 'warning', title: 'Chọn cuộc thi', text: 'Vui lòng chọn cuộc thi bạn muốn tham gia' });
     return;
   }
+  if (!videoFile.value) {
+    swal.fire({
+      icon: 'warning',
+      title: 'Chưa tải video',
+      text: 'Vui lòng chọn tệp video dự thi của bạn trước khi nộp bài.',
+    });
+    return;
+  }
 
   isSubmitting.value = true;
   const user = currentUser.value;
   const videoId = Date.now();
   const selectedProj = projects.value.find(p => String(p.id) === String(submission.value.projectId));
+  const projectName = selectedProj ? selectedProj.name : 'Cuộc thi';
+  const uploaderName = user.fullName || user.userName || 'Sinh viên';
+  const authorGroup = submission.value.authorGroup.trim() || uploaderName;
+
+  // Format file name for Drive: [Tên dự án]_[Tên người upload]_[Tên video]
+  const cleanOriginalName = videoFile.value.name.replace(/[\\/*?:"<>|]/g, '_');
+  const formattedDriveFileName = `[${projectName}]_${uploaderName}_${cleanOriginalName}`;
+
+  // If thumbnail is still empty, attempt quick capture
+  if (!submission.value.thumbnailUrl && videoFile.value) {
+    try {
+      const thumb = await captureVideoThumbnail(videoFile.value);
+      if (thumb) submission.value.thumbnailUrl = thumb;
+    } catch (e) {}
+  }
+
+  // Save video file into IndexedDB for persistent local playback
+  await saveVideoFile(videoId, videoFile.value);
 
   const newEntry = {
     id: videoId,
     name: submission.value.name.trim(),
     projectId: submission.value.projectId,
-    authorGroup: submission.value.authorGroup.trim() || user.fullName || user.userName,
-    studentId: submission.value.studentId.trim() || user.studentId || '',
-    className: submission.value.className.trim() || user.className || '',
+    projectName: projectName,
+    authorGroup: authorGroup,
+    studentId: user.studentId || '',
+    className: user.className || '',
     description: submission.value.description.trim(),
     thumbnailUrl: submission.value.thumbnailUrl,
     createdBy: user.userName || 'student',
+    uploaderName: uploaderName,
     folderId: selectedProj?.folderId || '',
-    videoUrl: submission.value.videoUrl.trim(),
-    versions: submission.value.videoUrl ? [{ id: Date.now() + 1, name: 'v1', videoUrl: submission.value.videoUrl.trim() }] : [],
+    videoFileName: formattedDriveFileName,
+    originalFileName: videoFile.value.name,
+    videoFileSize: videoFile.value.size,
+    videoUrl: videoPreviewUrl.value || '',
+    driveFileName: formattedDriveFileName,
+    versions: [
+      {
+        id: Date.now() + 1,
+        name: 'v1',
+        fileName: formattedDriveFileName,
+        videoUrl: videoPreviewUrl.value || '',
+        fileSize: videoFile.value.size,
+        createdAt: new Date().toLocaleString('en-GB'),
+      }
+    ],
     done: 0,
     feedbacks: 0,
     avgScore: 0,
@@ -252,7 +437,6 @@ async function submitEntry() {
     scores: [],
     voteCount: 0,
     hasVoted: false,
-    projectName: selectedProj ? selectedProj.name : 'Cuộc thi',
     createdAt: new Date().toLocaleString('en-GB'),
   };
 
@@ -272,7 +456,17 @@ async function submitEntry() {
   swal.fire({
     icon: 'success',
     title: 'Nộp bài thành công!',
-    text: `Tác phẩm "${newEntry.name}" đã được nộp vào cuộc thi "${newEntry.projectName}". Bạn có thể theo dõi kết quả chấm điểm tại đây.`,
+    html: `
+      <div class="text-left text-sm space-y-2 mt-2">
+        <p>Tác phẩm: <strong>${newEntry.name}</strong></p>
+        <p>Cuộc thi: <strong>${newEntry.projectName}</strong></p>
+        <p>Tệp video: <strong>${formattedDriveFileName}</strong> (${formatBytes(newEntry.videoFileSize)})</p>
+        <div class="mt-3 p-3 rounded-xl bg-blue-50 border border-blue-100 text-blue-800 text-xs flex items-start gap-2">
+          <span>📁</span>
+          <span>Video đã được tự động liên kết vào thư mục dự án trên Google Drive của bạn.</span>
+        </div>
+      </div>
+    `,
     confirmButtonText: 'Đã hiểu',
     confirmButtonColor: '#2563eb',
   });
@@ -335,51 +529,74 @@ function updateSubmission() {
   showModalEdit.value = false;
   swal.fire({ icon: 'success', title: 'Đã cập nhật bài thi', timer: 1200, showConfirmButton: false });
 }
+
+// ========================================================
+// Community Tab: Search, Filter & Sort State
+// ========================================================
+const communitySort = ref('most-voted'); // 'most-voted' | 'newest' | 'highest-score' | 'oldest'
+const communityFilterContest = ref('all');
+const communitySearch = ref('');
+
+const filteredCommunityVideos = computed(() => {
+  let list = [...allVideos.value];
+
+  // 1. Filter by Contest
+  if (communityFilterContest.value !== 'all') {
+    list = list.filter(v => String(v.projectId) === String(communityFilterContest.value));
+  }
+
+  // 2. Filter by Search keyword (name, authorGroup, studentId, className, projectName)
+  if (communitySearch.value && communitySearch.value.trim()) {
+    const q = communitySearch.value.trim().toLowerCase();
+    list = list.filter(v => {
+      const name = (v.name || '').toLowerCase();
+      const author = (v.authorGroup || '').toLowerCase();
+      const sid = (v.studentId || '').toLowerCase();
+      const cls = (v.className || '').toLowerCase();
+      const pName = (v.projectName || '').toLowerCase();
+      return name.includes(q) || author.includes(q) || sid.includes(q) || cls.includes(q) || pName.includes(q);
+    });
+  }
+
+  // 3. Sort
+  if (communitySort.value === 'most-voted') {
+    // Sắp xếp bài thi được thích / bình chọn nhiều nhất
+    list.sort((a, b) => {
+      const diff = (b.voteCount || 0) - (a.voteCount || 0);
+      if (diff !== 0) return diff;
+      return (b.id || 0) - (a.id || 0);
+    });
+  } else if (communitySort.value === 'newest') {
+    // Sắp xếp bài mới nhất
+    list.sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (dateA && dateB && dateA !== dateB) return dateB - dateA;
+      return (Number(b.id) || 0) - (Number(a.id) || 0);
+    });
+  } else if (communitySort.value === 'highest-score') {
+    // Sắp xếp điểm BGK cao nhất
+    list.sort((a, b) => {
+      const diff = (b.avgScore || 0) - (a.avgScore || 0);
+      if (diff !== 0) return diff;
+      return (b.voteCount || 0) - (a.voteCount || 0);
+    });
+  } else if (communitySort.value === 'oldest') {
+    // Sắp xếp bài cũ nhất
+    list.sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      if (dateA && dateB && dateA !== dateB) return dateA - dateB;
+      return (Number(a.id) || 0) - (Number(b.id) || 0);
+    });
+  }
+
+  return list;
+});
 </script>
 
 <template>
   <div class="max-w-7xl mx-auto p-4 sm:p-8 flex flex-col gap-6">
-    <!-- Welcome Header & Profile Summary Banner -->
-    <div class="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl p-6 sm:p-8 text-white shadow-xl shadow-blue-900/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative overflow-hidden">
-      <!-- Background decorative circle -->
-      <div class="absolute -top-24 -right-24 size-64 rounded-full bg-white/10 blur-2xl pointer-events-none"></div>
-
-      <div class="flex items-center gap-4 sm:gap-5 z-10">
-        <!-- Student Avatar Badge -->
-        <div class="size-16 sm:size-20 rounded-3xl bg-white/20 backdrop-blur-md border border-white/30 flex items-center justify-center text-3xl sm:text-4xl shadow-lg shrink-0">
-          🎓
-        </div>
-        <div>
-          <div class="flex items-center gap-2 flex-wrap mb-1">
-            <span class="px-3 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-[11px] font-bold tracking-wide uppercase">
-              Cổng Sinh Viên
-            </span>
-            <span v-if="currentUser.studentId" class="px-3 py-0.5 rounded-full bg-emerald-400/20 text-emerald-100 border border-emerald-300/30 text-[11px] font-bold">
-              MSSV: {{ currentUser.studentId }}
-            </span>
-            <span v-if="currentUser.className" class="px-3 py-0.5 rounded-full bg-blue-300/20 text-blue-100 border border-blue-200/30 text-[11px] font-bold">
-              {{ currentUser.className }}
-            </span>
-          </div>
-          <h1 class="text-2xl sm:text-3xl font-black tracking-tight">
-            Xin chào, {{ currentUser.fullName || currentUser.userName }}!
-          </h1>
-          <p class="text-blue-100 text-xs sm:text-sm mt-1 max-w-xl">
-            Không gian cá nhân dành cho sinh viên: Nộp bài dự thi, theo dõi điểm số Ban Giám khảo và nhận bình chọn cộng đồng.
-          </p>
-        </div>
-      </div>
-
-      <!-- Action: Submit New Project Button -->
-      <button
-        type="button"
-        @click="openSubmitModal()"
-        class="z-10 px-6 py-3.5 rounded-2xl bg-white hover:bg-blue-50 text-blue-700 font-extrabold text-xs sm:text-sm flex items-center gap-2.5 shadow-lg shadow-black/10 hover:shadow-xl transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-      >
-        <IconPlus class="size-4 fill-current" />
-        <span>Nộp bài dự thi mới</span>
-      </button>
-    </div>
 
     <!-- Quick Stats Cards (Thống kê cá nhân của sinh viên) -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
@@ -536,14 +753,19 @@ function updateSubmission() {
           <div class="relative w-full aspect-video bg-slate-100 overflow-hidden group">
             <NuxtLink :to="'/video?id=' + v.id" class="w-full h-full block">
               <img
-                v-if="v.thumbnailUrl"
-                :src="v.thumbnailUrl"
+                v-if="v.thumbnailUrl && !failedVideoThumbnails[v.id]"
+                :src="data.formatThumbnailUrl(v.thumbnailUrl)"
                 :alt="v.name"
+                referrerpolicy="no-referrer"
+                loading="lazy"
+                @error="failedVideoThumbnails[v.id] = true"
                 class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
-              <div v-else class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-50 to-blue-50 text-slate-400">
-                <IconCirclePlay class="size-8 text-blue-500 mb-1" />
-                <span class="text-xs font-semibold">Xem video</span>
+              <div v-else class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 text-white p-4 text-center">
+                <div class="size-11 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-blue-400 mb-2">
+                  <IconCirclePlay class="size-6 fill-current" />
+                </div>
+                <span class="text-xs font-semibold text-slate-300 line-clamp-1">{{ v.name }}</span>
               </div>
             </NuxtLink>
 
@@ -633,13 +855,24 @@ function updateSubmission() {
         >
           <div class="w-full aspect-video bg-slate-100 overflow-hidden relative group">
             <img
-              v-if="p.thumbnailUrl"
-              :src="p.thumbnailUrl"
+              v-if="p.thumbnailUrl && !failedProjectThumbnails[p.id]"
+              :src="data.formatThumbnailUrl(p.thumbnailUrl)"
               :alt="p.name"
+              referrerpolicy="no-referrer"
+              loading="lazy"
+              @error="failedProjectThumbnails[p.id] = true"
               class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
-            <div v-else class="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-600">
-              <IconCirclePlay class="size-10" />
+            <!-- Fallback Vibrant Card for contests without image or if image link fails -->
+            <div
+              v-else
+              :class="['w-full h-full flex flex-col items-center justify-center text-white p-5 text-center select-none bg-gradient-to-br', getProjectGradient(p.id)]"
+            >
+              <div class="size-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white mb-2 shadow-inner font-black text-lg">
+                {{ getProjectInitials(p.name) }}
+              </div>
+              <p class="text-xs font-bold text-white/95 line-clamp-1 max-w-[90%]">{{ p.name }}</p>
+              <span class="text-[10px] text-white/75 mt-0.5">Cuộc thi sáng tạo video</span>
             </div>
             <div class="absolute top-3 right-3">
               <span class="px-2.5 py-1 rounded-full bg-emerald-500/90 text-white text-[11px] font-bold shadow-md">
@@ -679,20 +912,87 @@ function updateSubmission() {
     <!-- ======================================================== -->
     <!-- TAB 3: BÌNH CHỌN CHO BẠN BÈ (COMMUNITY VOTING) -->
     <!-- ======================================================== -->
-    <div v-else-if="activeTab === 'community'">
-      <div class="bg-gradient-to-r from-rose-50 to-pink-50 p-6 rounded-3xl border border-rose-200/80 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div>
-          <h3 class="text-lg font-black text-slate-900">Bình chọn giải “Bài dự thi được yêu thích nhất”</h3>
-          <p class="text-xs text-slate-600 mt-0.5">Mỗi tài khoản được bình chọn 1 lần cho từng bài thi. Hãy ủng hộ các tác phẩm bạn yêu thích!</p>
+    <div v-else-if="activeTab === 'community'" class="flex flex-col gap-6">
+      <!-- FILTER & SORT TOOLBAR -->
+      <div class="bg-white rounded-3xl p-5 border border-slate-200/80 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <!-- Search input -->
+        <div class="relative flex-1 min-w-[240px]">
+          <input
+            v-model="communitySearch"
+            type="text"
+            placeholder="Tìm theo tên bài thi, tác giả, MSSV, lớp..."
+            class="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-900 placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400 transition-all"
+          />
+          <svg class="size-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z" />
+          </svg>
+          <button
+            v-if="communitySearch"
+            type="button"
+            @click="communitySearch = ''"
+            class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-sm font-bold p-0.5 cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
-        <div class="px-4 py-2 rounded-2xl bg-rose-500 text-white font-black text-sm shadow-md shadow-rose-500/25 shrink-0">
-          ❤️ Bình chọn Cộng đồng
+
+        <!-- Contest Select Dropdown -->
+        <div class="w-full md:w-56 shrink-0">
+          <select
+            v-model="communityFilterContest"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400 transition-all cursor-pointer"
+          >
+            <option value="all">🏆 Tất cả cuộc thi ({{ allVideos.length }})</option>
+            <option v-for="p in projects" :key="p.id" :value="p.id">
+              {{ p.name }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Sort Select Dropdown -->
+        <div class="w-full md:w-52 shrink-0">
+          <select
+            v-model="communitySort"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white text-slate-800 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400 transition-all cursor-pointer"
+          >
+            <option value="most-voted">❤️ Thích nhiều nhất</option>
+            <option value="newest">⏱️ Bài mới nhất</option>
+            <option value="highest-score">⭐ Điểm BGK cao nhất</option>
+            <option value="oldest">🕒 Bài cũ nhất</option>
+          </select>
+        </div>
+
+        <!-- Counter -->
+        <div class="text-xs text-slate-500 font-medium px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-100 shrink-0 text-center whitespace-nowrap">
+          Hiển thị <span class="font-extrabold text-slate-800">{{ filteredCommunityVideos.length }}</span> / {{ allVideos.length }} bài thi
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Empty Filter State -->
+      <div
+        v-if="filteredCommunityVideos.length === 0"
+        class="bg-white rounded-3xl border border-slate-200/80 p-12 text-center flex flex-col items-center justify-center max-w-md mx-auto w-full my-6 shadow-xs"
+      >
+        <div class="size-16 rounded-3xl bg-rose-50 text-rose-500 flex items-center justify-center text-2xl mb-3">
+          🔍
+        </div>
+        <h4 class="font-bold text-slate-800 text-base mb-1">Không tìm thấy bài thi phù hợp</h4>
+        <p class="text-xs text-slate-500 max-w-xs mb-4">
+          Thử thay đổi từ khóa tìm kiếm hoặc chọn lại cuộc thi khác.
+        </p>
+        <button
+          type="button"
+          @click="communitySearch = ''; communityFilterContest = 'all'; communitySort = 'most-voted'"
+          class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+        >
+          Đặt lại bộ lọc
+        </button>
+      </div>
+
+      <!-- Videos Grid -->
+      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <project-item
-          v-for="vid in allVideos"
+          v-for="vid in filteredCommunityVideos"
           :key="vid.id"
           :video="vid"
           :can-score="false"
@@ -751,61 +1051,42 @@ function updateSubmission() {
             />
           </div>
 
-          <!-- Authors & MSSV -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Nhóm tác giả / Thí sinh <span class="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                v-model="submission.authorGroup"
-                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-                required
-              />
-            </div>
-            <div>
-              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-                Mã sinh viên (MSSV)
-              </label>
-              <input
-                type="text"
-                v-model="submission.studentId"
-                class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-              />
-            </div>
-          </div>
-
-          <!-- Class -->
+          <!-- Authors (Full width) -->
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Lớp / Khoa
+              Tác giả / Nhóm tác giả <span class="text-rose-500">*</span>
             </label>
             <input
               type="text"
-              v-model="submission.className"
+              v-model="submission.authorGroup"
               class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+              placeholder="Họ tên thí sinh hoặc nhóm thực hiện"
+              required
             />
-          </div>
-
-          <!-- Video Drive Link -->
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Đường dẫn Google Drive Video
-            </label>
-            <input
-              type="url"
-              v-model="submission.videoUrl"
-              class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
-            />
-            <p class="text-[11px] text-slate-400 mt-1">Dán liên kết Google Drive video của bạn ở quyền truy cập công khai.</p>
           </div>
 
           <!-- Thumbnail Upload -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Ảnh bìa tác phẩm (Poster / Thumbnail)
-            </label>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Ảnh bìa (Thumbnail)
+              </label>
+              <div v-if="thumbnailPreview" class="flex items-center gap-1.5">
+                <span
+                  v-if="isCustomThumbnail"
+                  class="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1"
+                >
+                  🖼️ Ảnh bìa tải lên
+                </span>
+                <span
+                  v-else
+                  class="text-[11px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1"
+                >
+                  🎬 Lấy từ video
+                </span>
+              </div>
+            </div>
+
             <input
               type="file"
               ref="fileInputRef"
@@ -814,50 +1095,122 @@ function updateSubmission() {
               @change="handleThumbnailUpload"
             />
 
-            <!-- Preview -->
-            <div v-if="thumbnailPreview" class="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 aspect-video group">
+            <!-- Thumbnail Preview -->
+            <div v-if="thumbnailPreview" class="relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 aspect-video group shadow-xs">
               <img :src="thumbnailPreview" alt="preview" class="w-full h-full object-cover" />
               <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <button
                   type="button"
                   @click="triggerFileInput"
-                  class="px-3 py-1.5 rounded-xl bg-white/90 hover:bg-white text-slate-800 text-xs font-bold transition-all cursor-pointer"
+                  class="px-3 py-1.5 rounded-xl bg-white/95 hover:bg-white text-slate-800 text-xs font-bold shadow transition-all cursor-pointer"
                 >
-                  Đổi ảnh khác
+                  Đổi ảnh
+                </button>
+                <button
+                  v-if="videoFile && isCustomThumbnail"
+                  type="button"
+                  @click="removeThumbnail"
+                  class="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow transition-all cursor-pointer"
+                >
+                  Lấy từ video
                 </button>
                 <button
                   type="button"
                   @click="removeThumbnail"
-                  class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all cursor-pointer"
+                  class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow transition-all cursor-pointer"
                 >
                   Gỡ ảnh
                 </button>
               </div>
             </div>
 
+            <!-- Upload trigger card (Minimal) -->
             <div
               v-else
               @click="triggerFileInput"
-              class="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer bg-slate-50/50 hover:bg-blue-50/30 transition-all flex flex-col items-center justify-center gap-2"
+              class="border-2 border-dashed border-slate-200 hover:border-blue-500 rounded-2xl p-4 text-center cursor-pointer bg-slate-50/50 hover:bg-blue-50/30 transition-all flex items-center justify-center gap-2"
             >
-              <div class="size-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
-                <span>📷</span>
-              </div>
-              <p class="text-xs font-bold text-slate-700">Tải ảnh bìa trực tiếp từ máy tính</p>
-              <p class="text-[11px] text-slate-400">Tự động tối ưu hóa và nén ảnh chất lượng cao</p>
+              <span class="text-lg">📷</span>
+              <span class="text-xs font-bold text-slate-600 hover:text-blue-600">Tải ảnh bìa (Tùy chọn)</span>
+            </div>
+
+            <div v-if="isExtractingThumb" class="flex items-center gap-2 text-xs text-blue-600 font-medium mt-1.5">
+              <span class="loading loading-spinner loading-xs"></span>
+              <span>Đang lấy ảnh bìa từ video...</span>
             </div>
           </div>
 
-          <!-- Description -->
+          <!-- Video File Upload (Placed Directly Below Thumbnail - Minimal) -->
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
-              Mô tả & Thông điệp tác phẩm
-            </label>
-            <textarea
-              v-model="submission.description"
-              rows="3"
-              class="w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all resize-none"
-            ></textarea>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Tệp Video dự thi <span class="text-rose-500">*</span>
+              </label>
+              <span v-if="videoFile" class="text-[11px] font-medium text-slate-500">
+                {{ formatBytes(videoFileSize) }}
+              </span>
+            </div>
+
+            <input
+              type="file"
+              ref="videoFileInputRef"
+              accept="video/mp4,video/webm,video/quicktime,video/x-matroska,video/*"
+              class="hidden"
+              @change="handleVideoFileSelect"
+            />
+
+            <!-- Empty Dropzone (Clean & Compact) -->
+            <div
+              v-if="!videoFile"
+              @click="triggerVideoFileInput"
+              class="border-2 border-dashed border-blue-300 hover:border-blue-600 rounded-2xl p-5 text-center cursor-pointer bg-blue-50/30 hover:bg-blue-50/60 transition-all flex flex-col items-center justify-center gap-2 group"
+            >
+              <div class="size-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/25 group-hover:scale-105 transition-transform text-lg">
+                🎥
+              </div>
+              <p class="text-xs font-bold text-blue-600">Bấm để chọn tệp video dự thi</p>
+            </div>
+
+            <!-- Video Selected Card & Playable Preview (Clean) -->
+            <div v-else class="rounded-2xl border border-slate-200 bg-slate-50/60 p-3 space-y-2.5">
+              <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div class="size-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 font-bold text-base">
+                    🎬
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-xs font-bold text-slate-800 truncate" :title="videoFileName">
+                      {{ videoFileName }}
+                    </p>
+                    <p class="text-[11px] text-slate-500">
+                      {{ formatBytes(videoFileSize) }}
+                    </p>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    @click="triggerVideoFileInput"
+                    class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium transition-all cursor-pointer"
+                  >
+                    Đổi video
+                  </button>
+                  <button
+                    type="button"
+                    @click="removeVideoFile"
+                    class="px-2.5 py-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-medium transition-all cursor-pointer"
+                  >
+                    Gỡ
+                  </button>
+                </div>
+              </div>
+
+              <!-- Playable Video Preview -->
+              <div v-if="videoPreviewUrl" class="rounded-xl overflow-hidden bg-black aspect-video max-h-48 flex items-center justify-center shadow-inner">
+                <video :src="videoPreviewUrl" controls class="w-full h-full max-h-48 object-contain"></video>
+              </div>
+            </div>
           </div>
 
           <!-- Actions -->

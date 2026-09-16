@@ -16,6 +16,10 @@ const props = defineProps({
 const emits = defineEmits(['clickEdit', 'clickDelete', 'clickScore', 'clickVote']);
 
 const imgError = ref(false);
+watch(() => props.video?.thumbnailUrl, () => {
+  imgError.value = false;
+});
+
 const validThumbnailUrl = computed(() => {
   if (imgError.value || !props.video?.thumbnailUrl) return '';
   return formatThumbnailUrl(props.video.thumbnailUrl);
@@ -48,6 +52,7 @@ function onClickVote() {
           :src="validThumbnailUrl"
           :alt="props.video.name"
           referrerpolicy="no-referrer"
+          loading="lazy"
           @error="imgError = true"
           class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />

@@ -43,8 +43,8 @@ async function requestPasswordReset() {
       <div class="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-blue-900/10 border border-slate-200/80 p-8 sm:p-10">
         <!-- Brand Header -->
         <div class="text-center mb-8">
-          <div class="size-14 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-blue-600/30 p-2.5">
-            <img src="~/assets/images/logo.webp" alt="logo" class="size-full object-contain filter brightness-0 invert" />
+          <div class="size-16 mx-auto mb-4 rounded-2xl bg-white border border-slate-200/80 shadow-md flex items-center justify-center p-2">
+            <img src="~/assets/images/logo.webp" alt="MediaAI" class="size-full object-contain" />
           </div>
           <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
             Quên mật khẩu
