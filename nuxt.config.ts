@@ -5,6 +5,11 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   css: ["~/assets/css/main.css"],
   modules: ["@nuxtjs/tailwindcss", "@pinia/nuxt"],
+  runtimeConfig: {
+    public: {
+      geminiApiKey: process.env.NUXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "",
+    },
+  },
   app: {
     head: {
       title: "MediaAI - Nền tảng tổ chức cuộc thi sáng tạo số tích hợp AI hỗ trợ đánh giá kỹ thuật video",

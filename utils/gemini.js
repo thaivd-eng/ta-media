@@ -4,7 +4,18 @@ import fetchSheet from "./fetch-sheet.js";
 const SHEET_ID = "15pDDZaKB8W7uZsZZpmLlmGKvJzUR4wDbu5Ms2-RvC74";
 const BASE_URL = "https://script.google.com/macros/s/AKfycbw7TqJOltlTpdakc4DVu1fDxftaymejAkj7Exp-RDnqhnFc_UcpfP67pg3KrAVnGP_x/exec";
 
-const GEMINI_API_KEY = "AQ.Ab8RN6IDueFjOfrvsTzrs4m5_MBa02PKjsLTG73HXluXhDex8Q";
+function getGeminiApiKey() {
+  try {
+    const config = useRuntimeConfig();
+    if (config?.public?.geminiApiKey) return config.public.geminiApiKey;
+  } catch (e) {}
+
+  if (typeof process !== 'undefined' && process?.env) {
+    return process.env.NUXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "";
+  }
+
+  return "";
+}
 
 export function isTimestampSpecific(q) {
   if (!q) return false;
@@ -56,25 +67,25 @@ export async function callGeminiDirect(question, isVeo = false, context = null) 
 
   const systemPrompt = isVeo
     ? "Bạn là Trợ lý AI sáng tạo kịch bản & phân cảnh B-roll (Veo Studio) của nền tảng LH MediaAI.\n" +
-      "QUY TẮC:\n" +
-      "1. Không chào hỏi dài dòng, vào thẳng ý chính.\n" +
-      "2. Đưa ra 2-3 phân cảnh B-roll gợi ý chi tiết (Mô tả cảnh, Góc máy, Ánh sáng, Chuyển động).\n" +
-      "3. Kèm theo Prompt mẫu bằng tiếng Anh/Việt ngắn gọn.\n\n" +
-      "Câu hỏi: " + question + videoContextInfo
+    "QUY TẮC:\n" +
+    "1. Không chào hỏi dài dòng, vào thẳng ý chính.\n" +
+    "2. Đưa ra 2-3 phân cảnh B-roll gợi ý chi tiết (Mô tả cảnh, Góc máy, Ánh sáng, Chuyển động).\n" +
+    "3. Kèm theo Prompt mẫu bằng tiếng Anh/Việt ngắn gọn.\n\n" +
+    "Câu hỏi: " + question + videoContextInfo
     : "Bạn là Trợ lý AI cố vấn kỹ thuật video chuyên nghiệp của nền tảng LH MediaAI.\n" +
-      "Nhiệm vụ của bạn là nhận xét, tư vấn kỹ thuật (kịch bản, âm thanh, ánh sáng, góc quay, nhịp dựng) cho học sinh cải thiện bài thi và cung cấp dữ liệu tham khảo chuyên môn cho Ban Giám khảo.\n\n" +
-      "QUY TẮC PHẢN HỒI BẮT BUỘC DÀNH CHO GIÁM KHẢO & HỌC SINH (SÚC TÍCH, ĐỌC NHANH TRONG 10 GIÂY):\n" +
-      "1. TUYỆT ĐỐI KHÔNG CHÀO HỎI LÊ THÊ (Không nói 'Chào bạn', 'Tôi là...', 'Dựa trên diễn biến...'). Đi thẳng vào nhận xét ngay lập tức!\n" +
-      "2. Trình bày cực kỳ súc tích, trực quan theo đúng 4 phần sau:\n\n" +
-      "🌟 **Điểm nổi bật:**\n" +
-      "- [2-3 gạch đầu dòng ngắn gọn, khen đúng trọng tâm kỹ thuật]\n\n" +
-      "⚠️ **Điểm cần cải thiện:**\n" +
-      "- [2-3 gạch đầu dòng ngắn gọn, chỉ rõ vấn đề cần sửa]\n\n" +
-      "💡 **Giải pháp khắc phục nhanh:**\n" +
-      "- [2-3 bước hành động cụ thể cho học sinh & tiêu chí cho giám khảo]\n\n" +
-      "🎯 **Đánh giá tham khảo:** [X.X/10] - [1 câu nhận xét tổng quan ngắn gọn]\n\n" +
-      "3. Văn phong khách quan, sắc bén, chuyên môn dựng phim nhưng dễ hiểu cho học sinh.\n\n" +
-      "Câu hỏi từ người dùng: " + question + videoContextInfo;
+    "Nhiệm vụ của bạn là nhận xét, tư vấn kỹ thuật (kịch bản, âm thanh, ánh sáng, góc quay, nhịp dựng) cho học sinh cải thiện bài thi và cung cấp dữ liệu tham khảo chuyên môn cho Ban Giám khảo.\n\n" +
+    "QUY TẮC PHẢN HỒI BẮT BUỘC DÀNH CHO GIÁM KHẢO & HỌC SINH (SÚC TÍCH, ĐỌC NHANH TRONG 10 GIÂY):\n" +
+    "1. TUYỆT ĐỐI KHÔNG CHÀO HỎI LÊ THÊ (Không nói 'Chào bạn', 'Tôi là...', 'Dựa trên diễn biến...'). Đi thẳng vào nhận xét ngay lập tức!\n" +
+    "2. Trình bày cực kỳ súc tích, trực quan theo đúng 4 phần sau:\n\n" +
+    "🌟 **Điểm nổi bật:**\n" +
+    "- [2-3 gạch đầu dòng ngắn gọn, khen đúng trọng tâm kỹ thuật]\n\n" +
+    "⚠️ **Điểm cần cải thiện:**\n" +
+    "- [2-3 gạch đầu dòng ngắn gọn, chỉ rõ vấn đề cần sửa]\n\n" +
+    "💡 **Giải pháp khắc phục nhanh:**\n" +
+    "- [2-3 bước hành động cụ thể cho học sinh & tiêu chí cho giám khảo]\n\n" +
+    "🎯 **Đánh giá tham khảo:** [X.X/10] - [1 câu nhận xét tổng quan ngắn gọn]\n\n" +
+    "3. Văn phong khách quan, sắc bén, chuyên môn dựng phim nhưng dễ hiểu cho học sinh.\n\n" +
+    "Câu hỏi từ người dùng: " + question + videoContextInfo;
 
   const parts = [{ text: systemPrompt }];
 
@@ -91,9 +102,10 @@ export async function callGeminiDirect(question, isVeo = false, context = null) 
     contents: [{ parts }]
   };
 
+  const apiKey = getGeminiApiKey();
   for (const model of models) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" }, timeout: 20000 });
       if (res.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
         return res.data.candidates[0].content.parts[0].text;
@@ -116,8 +128,8 @@ export async function ask(data) {
       let str = JSON.stringify(textData);
       let encoded = encodeURIComponent(str);
       let url = `${BASE_URL}?action=ask-gemini&data=${encoded}`;
-      axios.get(url, { timeout: 10000 }).catch(() => {});
-    } catch (e) {}
+      axios.get(url, { timeout: 10000 }).catch(() => { });
+    } catch (e) { }
 
     resultText = await callGeminiDirect(data.question, false, data);
     return {
@@ -188,8 +200,8 @@ export async function askVeo(data) {
       let str = JSON.stringify(textData);
       let encoded = encodeURIComponent(str);
       let url = `${BASE_URL}?action=ask-veo&data=${encoded}`;
-      axios.get(url, { timeout: 10000 }).catch(() => {});
-    } catch (e) {}
+      axios.get(url, { timeout: 10000 }).catch(() => { });
+    } catch (e) { }
 
     resultText = await callGeminiDirect(data.question, true, data);
     return {
