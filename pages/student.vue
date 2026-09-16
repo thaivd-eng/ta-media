@@ -842,16 +842,7 @@ const filteredCommunityVideos = computed(() => {
             </div>
 
             <!-- Actions Bar -->
-            <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-              <button
-                type="button"
-                @click="openEditModal(v)"
-                class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 flex items-center gap-1.5 transition-colors cursor-pointer"
-              >
-                <IconPenToSquare class="size-3.5 fill-current" />
-                <span>Chỉnh sửa</span>
-              </button>
-
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-end">
               <NuxtLink
                 :to="'/video?id=' + v.id"
                 class="px-4 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs flex items-center gap-1.5 transition-colors"

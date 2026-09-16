@@ -38,7 +38,7 @@ const isActive = (path) => {
           <img src="~/assets/images/logo.webp" alt="MediaAI Logo" class="size-full object-contain" />
         </div>
         <div class="min-w-0 flex-1">
-          <h1 class="text-base font-black text-slate-900 tracking-tight leading-none">MediaAI</h1>
+          <h1 class="text-base font-black text-slate-900 tracking-tight leading-none">LH MediaAI</h1>
           <p class="text-[10px] font-bold text-blue-600 mt-1 leading-tight line-clamp-1">
             Nền tảng sáng tạo số & Đánh giá AI
           </p>
@@ -104,9 +104,9 @@ const isActive = (path) => {
           </div>
         </div>
 
-        <!-- Section: Tài khoản & Hỗ trợ (Đồng bộ đầy đủ cho mọi tài khoản) -->
+        <!-- Section: Thông tin & Hỗ trợ (Đồng bộ đầy đủ cho mọi tài khoản) -->
         <div>
-          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-2">Tài khoản & Hỗ trợ</p>
+          <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-2">Thông tin & Hỗ trợ</p>
           <div class="flex flex-col gap-1">
             <NuxtLink
               to="/info"
@@ -120,7 +120,7 @@ const isActive = (path) => {
               <div :class="['size-5 flex items-center justify-center transition-colors', isActive('/info') ? 'text-blue-600' : 'text-slate-400']">
                 <IconCircleInfo class="size-5 fill-current" />
               </div>
-              <span>Thông tin tài khoản</span>
+              <span>Thông tin</span>
             </NuxtLink>
 
             <NuxtLink

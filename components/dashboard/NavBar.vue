@@ -72,7 +72,7 @@ function signOut() {
           <li>
             <NuxtLink to="/info" class="flex items-center gap-2 py-2 px-3 rounded-xl text-slate-700 hover:bg-blue-50 hover:text-blue-600 font-medium text-xs">
               <IconCircleInfo class="size-4" />
-              <span>Thông tin tài khoản</span>
+              <span>Thông tin</span>
             </NuxtLink>
           </li>
           <li>
