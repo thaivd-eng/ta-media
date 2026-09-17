@@ -4,19 +4,6 @@ import fetchSheet from "./fetch-sheet.js";
 const SHEET_ID = "15pDDZaKB8W7uZsZZpmLlmGKvJzUR4wDbu5Ms2-RvC74";
 const BASE_URL = "https://script.google.com/macros/s/AKfycbw7TqJOltlTpdakc4DVu1fDxftaymejAkj7Exp-RDnqhnFc_UcpfP67pg3KrAVnGP_x/exec";
 
-function getGeminiApiKey() {
-  try {
-    const config = useRuntimeConfig();
-    if (config?.public?.geminiApiKey) return config.public.geminiApiKey;
-  } catch (e) {}
-
-  if (typeof process !== 'undefined' && process?.env) {
-    return process.env.NUXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "";
-  }
-
-  return "";
-}
-
 export function isTimestampSpecific(q) {
   if (!q) return false;
   // Match timestamps, specific seconds, minutes, or specific freeze-frame questions (with or without accents)
@@ -31,8 +18,6 @@ export function isTimestampSpecific(q) {
 }
 
 export async function callGeminiDirect(question, isVeo = false, context = null) {
-  const models = ["gemini-3.5-flash-lite", "gemini-3.1-flash-lite-preview", "gemini-3.5-flash"];
-
   const isTimeSpecific = isTimestampSpecific(question);
   let videoContextInfo = "";
 
@@ -102,78 +87,31 @@ export async function callGeminiDirect(question, isVeo = false, context = null) 
     contents: [{ parts }]
   };
 
-  const apiKey = getGeminiApiKey();
-  for (const model of models) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-      const res = await axios.post(url, payload, { headers: { "Content-Type": "application/json" }, timeout: 20000 });
-      if (res.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-        return res.data.candidates[0].content.parts[0].text;
-      }
-    } catch (e) {
-      console.warn(`Model ${model} failed, trying next:`, e?.message);
+  // Securely call server proxy /api/gemini (Zero exposed API keys on client/frontend)
+  try {
+    const res = await axios.post("/api/gemini", { payload }, { timeout: 30000 });
+    if (res.data?.text) {
+      return res.data.text;
     }
+  } catch (e) {
+    console.error("[LH MediaAI Proxy Error]:", e?.response?.status, e?.response?.data || e?.message);
   }
 
-  return "Xin lỗi, hiện tại hệ thống AI đang có lượng truy cập lớn. Bạn vui lòng thử lại sau giây lát nhé!";
+  return "Xin lỗi, hiện tại hệ thống AI đang có lượng truy cập lớn hoặc gặp sự cố kết nối. Bạn vui lòng thử lại sau giây lát nhé!";
 }
 
 export async function ask(data) {
-  let resultText = "";
-
-  // If image frame is attached, call Gemini Multimodal Vision immediately for instant analysis (1-2s)
-  if (data.image) {
-    try {
-      const { image, ...textData } = data;
-      let str = JSON.stringify(textData);
-      let encoded = encodeURIComponent(str);
-      let url = `${BASE_URL}?action=ask-gemini&data=${encoded}`;
-      axios.get(url, { timeout: 10000 }).catch(() => { });
-    } catch (e) { }
-
-    resultText = await callGeminiDirect(data.question, false, data);
-    return {
-      text: resultText,
-      role: "model",
-      type: "chat"
-    };
-  }
-
-  // Text-only prompt flow: try Apps Script, fallback to Gemini Direct if busy
-  let errorEncountered = false;
+  // 1. Fire-and-forget background logging to Google Sheet without blocking the user
   try {
-    let str = JSON.stringify(data);
+    const { image, ...textData } = data;
+    let str = JSON.stringify(textData);
     let encoded = encodeURIComponent(str);
     let url = `${BASE_URL}?action=ask-gemini&data=${encoded}`;
+    axios.get(url, { timeout: 5000 }).catch(() => { });
+  } catch (e) { }
 
-    let res = await axios.get(url, { timeout: 8000 });
-    let body = res.data;
-    if (body.status === "error") {
-      errorEncountered = true;
-    } else if (body.data?.text) {
-      const txt = body.data.text;
-      if (
-        txt.includes("high demand") ||
-        txt.includes("chưa thể phân tích") ||
-        txt.includes("Spikes in demand") ||
-        txt.includes("chưa đính kèm hoặc cung cấp") ||
-        txt.includes("chưa có link") ||
-        txt.includes("chưa có gắn link") ||
-        txt.includes("gửi link")
-      ) {
-        errorEncountered = true;
-      } else {
-        resultText = txt;
-      }
-    }
-  } catch (err) {
-    console.warn("Apps Script call failed or timed out:", err?.message);
-    errorEncountered = true;
-  }
-
-  if (errorEncountered || !resultText) {
-    resultText = await callGeminiDirect(data.question, false, data);
-  }
+  // 2. Call Gemini directly with API Key (ultra-fast 1-2s response, no OAuth dependency)
+  const resultText = await callGeminiDirect(data.question, false, data);
 
   return {
     text: resultText,
@@ -192,59 +130,17 @@ export async function findConversation({ fileId, userId }) {
 }
 
 export async function askVeo(data) {
-  let resultText = "";
-
-  if (data.image) {
-    try {
-      const { image, ...textData } = data;
-      let str = JSON.stringify(textData);
-      let encoded = encodeURIComponent(str);
-      let url = `${BASE_URL}?action=ask-veo&data=${encoded}`;
-      axios.get(url, { timeout: 10000 }).catch(() => { });
-    } catch (e) { }
-
-    resultText = await callGeminiDirect(data.question, true, data);
-    return {
-      text: resultText,
-      role: "model",
-      type: "chat"
-    };
-  }
-
-  let errorEncountered = false;
+  // Fire-and-forget background logging
   try {
-    let str = JSON.stringify(data);
+    const { image, ...textData } = data;
+    let str = JSON.stringify(textData);
     let encoded = encodeURIComponent(str);
     let url = `${BASE_URL}?action=ask-veo&data=${encoded}`;
+    axios.get(url, { timeout: 5000 }).catch(() => { });
+  } catch (e) { }
 
-    let res = await axios.get(url, { timeout: 8000 });
-    let body = res.data;
-    if (body.status === "error") {
-      errorEncountered = true;
-    } else if (body.data?.text) {
-      const txt = body.data.text;
-      if (
-        txt.includes("high demand") ||
-        txt.includes("chưa thể phân tích") ||
-        txt.includes("Spikes in demand") ||
-        txt.includes("chưa đính kèm hoặc cung cấp") ||
-        txt.includes("chưa có link") ||
-        txt.includes("chưa có gắn link") ||
-        txt.includes("gửi link")
-      ) {
-        errorEncountered = true;
-      } else {
-        resultText = txt;
-      }
-    }
-  } catch (err) {
-    console.warn("Apps Script call failed or timed out:", err?.message);
-    errorEncountered = true;
-  }
-
-  if (errorEncountered || !resultText) {
-    resultText = await callGeminiDirect(data.question, true, data);
-  }
+  // Call Gemini directly with prompt for Veo B-roll
+  const resultText = await callGeminiDirect(data.question, true, data);
 
   return {
     text: resultText,
@@ -256,3 +152,4 @@ export async function askVeo(data) {
 export async function askBanana(data) {
   return askVeo(data);
 }
+

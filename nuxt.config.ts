@@ -6,9 +6,8 @@ export default defineNuxtConfig({
   css: ["~/assets/css/main.css"],
   modules: ["@nuxtjs/tailwindcss", "@pinia/nuxt"],
   runtimeConfig: {
-    public: {
-      geminiApiKey: process.env.NUXT_PUBLIC_GEMINI_API_KEY || process.env.GEMINI_API_KEY || "",
-    },
+    geminiApiKey: process.env.GEMINI_API_KEY || process.env.NUXT_PUBLIC_GEMINI_API_KEY || "",
+    public: {},
   },
   app: {
     head: {
